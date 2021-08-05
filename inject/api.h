@@ -155,3 +155,7 @@ NTAPI
 NtClose(
 	_In_ HANDLE Handle
 );
+
+typedef struct {
+	D_API( NtCreateSymbolicLinkObject );
+} API ;

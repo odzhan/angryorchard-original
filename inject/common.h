@@ -19,4 +19,5 @@
 #include "hash.h"
 #include "peb.h"
 #include "api.h"
+#include "bof.h"
 #include "pe.h"

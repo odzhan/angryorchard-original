@@ -16,7 +16,7 @@
 #define D_SEC( x )	__attribute__(( section( ".text$" #x ) ))
 
 /* Casts as a unsigned pointer with a typedef */
-#define D_API( x )	( ( ULONG_PTR ) x )
+#define D_API( x )	__typeof__( x ) * x
 
 /* Casts as a unsigned pointer-wide integer */
 #define U_PTR( x )	( ( ULONG_PTR ) x )
