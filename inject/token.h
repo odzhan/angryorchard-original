@@ -16,10 +16,10 @@
  *
  * Purpose:
  *
- * Injects a arbitrary unsigned DLL into a protected
- * process. Leverages a bug in DefineDosServices and
- * Application Verifiers to force the DLL to load.
+ * Locates a token matching the specified SID
+ * and checks if it has the available number
+ * of privileges.
  *
 **/
 
-D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc );
+D_SEC( B ) HANDLE TokenGetTokenWithSidAndPrivilegeCount( _In_ PAPI Api, _In_ PCHAR szSid, _In_ ULONG ulCount );

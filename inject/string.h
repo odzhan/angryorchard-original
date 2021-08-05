@@ -16,10 +16,10 @@
  *
  * Purpose:
  *
- * Injects a arbitrary unsigned DLL into a protected
- * process. Leverages a bug in DefineDosServices and
- * Application Verifiers to force the DLL to load.
+ * Performs a format string operation on an ANSI string,
+ * and converts the result to Unicode. The resulting
+ * buffer must be freed with LocalFree.
  *
 **/
 
-D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc );
+D_SEC( B ) LPWSTR StringPrintAToW( _In_ PAPI Api, _In_ LPSTR Format, ... );

@@ -157,5 +157,23 @@ NtClose(
 );
 
 typedef struct {
+	D_API( RtlAnsiStringToUnicodeString );
 	D_API( NtCreateSymbolicLinkObject );
-} API ;
+	D_API( RtlAnsiStringToUnicodeSize );
+	D_API( NtCreateDirectoryObjectEx );
+	D_API( NtQueryInformationToken );
+	D_API( ConvertStringSidToSidA );
+	D_API( RtlInitUnicodeString );
+	D_API( NtCreateTransaction );
+	D_API( NtOpenProcessToken );
+	D_API( RtlInitAnsiString );
+	D_API( IsTokenRestricted );
+	D_API( NtGetNextProcess );
+	D_API( DuplicateTokenEx );
+	D_API( NtCreateSection );
+	D_API( RtlEqualSid );
+	D_API( LocalAlloc );
+	D_API( _vsnprintf );
+	D_API( LocalFree );
+	D_API( NtClose );
+} API, *PAPI ;

