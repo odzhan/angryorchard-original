@@ -12,6 +12,15 @@
 
 #pragma once
 
+#define InitializeObjectAttributes( p, n, a, r, s ) { \
+	( p )->Length = sizeof( OBJECT_ATTRIBUTES );  \
+	( p )->RootDirectory = r;		      \
+	( p )->Attributes = a;			      \
+	( p )->ObjectName = n;			      \
+	( p )->SecurityDescriptor = s;		      \
+	( p )->SecurityQualityOfService = NULL;	      \
+}
+
 typedef struct 
 {
 	ULONG	Length;
@@ -157,10 +166,13 @@ NtClose(
 );
 
 typedef struct {
+	D_API( InitializeSecurityDescriptor );
 	D_API( RtlAnsiStringToUnicodeString );
 	D_API( NtCreateSymbolicLinkObject );
 	D_API( RtlAnsiStringToUnicodeSize );
+	D_API( SetSecurityDescriptorDacl );
 	D_API( NtCreateDirectoryObjectEx );
+	D_API( SetKernelObjectSecurity );
 	D_API( NtQueryInformationToken );
 	D_API( ConvertStringSidToSidA );
 	D_API( RtlInitUnicodeString );
@@ -170,7 +182,9 @@ typedef struct {
 	D_API( IsTokenRestricted );
 	D_API( NtGetNextProcess );
 	D_API( DuplicateTokenEx );
+	D_API( DefineDosDeviceW );
 	D_API( NtCreateSection );
+	D_API( SetThreadToken );
 	D_API( RtlEqualSid );
 	D_API( LocalAlloc );
 	D_API( _vsnprintf );

