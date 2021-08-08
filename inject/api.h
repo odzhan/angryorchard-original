@@ -174,7 +174,9 @@ typedef struct {
 	D_API( NtCreateDirectoryObjectEx );
 	D_API( SetKernelObjectSecurity );
 	D_API( NtQueryInformationToken );
+	D_API( CreateProcessWithTokenW );
 	D_API( ConvertStringSidToSidA );
+	D_API( CreateFileTransactedW );
 	D_API( RtlInitUnicodeString );
 	D_API( NtCreateTransaction );
 	D_API( NtOpenProcessToken );
@@ -183,11 +185,15 @@ typedef struct {
 	D_API( NtGetNextProcess );
 	D_API( DuplicateTokenEx );
 	D_API( DefineDosDeviceW );
+	D_API( RegCreateKeyExW );
 	D_API( NtCreateSection );
+	D_API( RegSetValueExW );
 	D_API( SetThreadToken );
 	D_API( RtlEqualSid );
 	D_API( LocalAlloc );
 	D_API( _vsnprintf );
+	D_API( WriteFile );
 	D_API( LocalFree );
 	D_API( NtClose );
+	D_API( Sleep );
 } API, *PAPI ;

@@ -43,6 +43,12 @@ BeaconDataParse(
 );
 
 DECLSPEC_IMPORT
+INT
+BeaconDataInt(
+	_Inout_ PDATAP Parser
+);
+
+DECLSPEC_IMPORT
 BOOL
 BeaconIsAdmin(
 	_In_ VOID
@@ -59,6 +65,8 @@ BeaconPrintf(
 typedef struct {
 	D_API( BeaconDataExtract );
 	D_API( BeaconDataParse );
+	D_API( BeaconDataInt );
 	D_API( BeaconIsAdmin );
 	D_API( BeaconPrintf );
 } BEACON_API, *PBEACON_API;
+

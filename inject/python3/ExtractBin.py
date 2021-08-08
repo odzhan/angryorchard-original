@@ -7,7 +7,6 @@
 ## a userland bug, this project remains 
 ## closed source.
 ##
-import cough
 import pefile
 import argparse
 

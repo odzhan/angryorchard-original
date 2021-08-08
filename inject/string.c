@@ -39,7 +39,7 @@ D_SEC( B ) LPWSTR StringPrintAToW( _In_ PAPI Api, _In_ LPSTR Format, ... )
 	Len = Api->_vsnprintf( NULL, 0, Format, Lst );
 	va_end( Lst );
 
-	if ( ( aSt = Api->LocalAlloc( LPTR, Len + ( sizeof( CHAR ) * 2 ) ) ) ) {
+	if ( ( aSt = Api->LocalAlloc( LPTR, Len + 1 ) ) ) {
 		va_start( Lst, Format );
 		Api->_vsnprintf( aSt, Len, Format, Lst );
 		va_end( Lst );
@@ -48,7 +48,7 @@ D_SEC( B ) LPWSTR StringPrintAToW( _In_ PAPI Api, _In_ LPSTR Format, ... )
 		Uni.MaximumLength = Api->RtlAnsiStringToUnicodeSize( &Ani );
 		Uni.Length        = Api->RtlAnsiStringToUnicodeSize( &Ani );
 
-		if ( ( Uni.Buffer = Api->LocalAlloc( LPTR, Uni.Length + ( sizeof( WCHAR ) * 2 ) ) ) ) {
+		if ( ( Uni.Buffer = Api->LocalAlloc( LPTR, Uni.Length + 2 ) ) ) {
 			Api->RtlAnsiStringToUnicodeString( &Uni, &Ani, FALSE );
 			wSt = Uni.Buffer;
 		};

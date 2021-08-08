@@ -18,6 +18,7 @@ VOID SpawnProtectedProcessWithLibrary( _In_ PVOID Argv, _In_ INT Argc ) {
 	RtlSecureZeroMemory( &Api, sizeof( Api ) );
 	Api.BeaconDataExtract = BeaconDataExtract;
 	Api.BeaconDataParse   = BeaconDataParse;
+	Api.BeaconDataInt     = BeaconDataInt;
 	Api.BeaconIsAdmin     = BeaconIsAdmin;
 	Api.BeaconPrintf      = BeaconPrintf;
 
