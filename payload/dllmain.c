@@ -27,6 +27,11 @@ D_SEC( B ) BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_
 	SIZE_T			Len = 0;
 	LPVOID			Lvw = NULL;
 	LPVOID			Rvw = NULL;
+
+	LPVOID			PRv = NULL;
+	LPVOID			PLv = NULL;
+	HANDLE			PSc = NULL;
+
 	HANDLE			Sec = NULL;
 	HANDLE			Cur = NULL;
 	HANDLE			Prc = NULL;
@@ -63,6 +68,7 @@ D_SEC( B ) BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_
 		goto Leave;
 	};
 
+	Len = 0;
 	Lig.QuadPart = U_PTR( G_END() - G_SYM( DsePatch ) );
 
 	if ( Api.NtCreateSection( &Sec, SECTION_ALL_ACCESS, NULL, &Lig, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL ) >= 0 ) {
@@ -72,6 +78,23 @@ D_SEC( B ) BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_
 		if ( !( Api.NtMapViewOfSection( Sec, Prc, &Rvw, 0, 0, 0, &Len, ViewShare, 0, PAGE_EXECUTE_READWRITE ) >= 0 ) ) {
 			goto Leave;
 		};
+
+		Len = 0;
+		Lig.QuadPart = sizeof( CLIENT_ID );
+
+		if ( !( Api.NtCreateSection( &PSc, SECTION_ALL_ACCESS, NULL, &Lig, PAGE_READWRITE, SEC_COMMIT, NULL ) >= 0 ) ) {
+			goto Leave;
+		};
+		if ( !( Api.NtMapViewOfSection( PSc, Cur, &PLv, 0, 0, 0, &Len, ViewShare, 0, PAGE_READWRITE ) >= 0 ) ) {
+			goto Leave;
+		};
+		if ( !( Api.NtMapViewOfSection( PSc, Prc, &PRv, 0, 0, 0, &Len, ViewShare, 0, PAGE_READWRITE ) >= 0 ) ) {
+			goto Leave;
+		};
+
+		( ( PCLIENT_ID ) PLv )->UniqueProcess = Nth->FileHeader.TimeDateStamp;
+		( ( PCLIENT_ID ) PLv )->UniqueThread  = Nth->FileHeader.PointerToSymbolTable;
+
 		__builtin_memcpy( Lvw, C_PTR( G_SYM( DsePatch ) ), U_PTR( G_END() - G_SYM( DsePatch ) ) );
 
 		if ( ! Api.RtlCreateUserThread(
@@ -82,12 +105,12 @@ D_SEC( B ) BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_
 				0,
 				0,
 				Rvw,
-				NULL,
-				NULL,
+				PRv,
+				&Thd,
 				NULL
 		) )
 		{
-			//Api.NtWaitForSingleObject( Thd, FALSE, NULL );
+			Api.NtWaitForSingleObject( Thd, FALSE, NULL );
 		} else {
 			goto Leave;
 		};
@@ -95,11 +118,26 @@ D_SEC( B ) BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_
 		goto Leave;
 	};
 Leave:
+	if ( Thd != NULL ) {
+		Api.NtClose( Thd );
+	};
+	if ( PRv != NULL ) {
+		Api.NtUnmapViewOfSection( Prc, PRv );
+	};
+	if ( PLv != NULL ) {
+		Api.NtUnmapViewOfSection( Cur, PLv );
+	};
+	if ( Rvw != NULL ) {
+		Api.NtUnmapViewOfSection( Prc, Rvw );
+	};
 	if ( Lvw != NULL ) {
 		Api.NtUnmapViewOfSection( Cur, Lvw );
 	};
 	if ( Sec != NULL ) {
 		Api.NtClose( Sec );
+	};
+	if ( PSc != NULL ) {
+		Api.NtClose( PSc );
 	};
 	if ( Prc != NULL ) {
 		Api.NtClose( Prc );

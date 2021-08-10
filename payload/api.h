@@ -228,6 +228,8 @@ NtClose(
 );
 
 typedef struct {
+	D_API( NtUserSetInformationThread );
+	D_API( NtUserHardErrorControl );
 	D_API( NtUserQueryInformationThread );
 	D_API( NtQuerySystemInformation );
 	D_API( NtWaitForSingleObject );
