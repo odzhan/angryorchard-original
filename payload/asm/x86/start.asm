@@ -9,39 +9,23 @@
 ;;
 [BITS 32]
 
-GLOBAL _Start
+GLOBAL _NtUserSetInformationThread@16
+GLOBAL _NtUserHardErrorControl@12
 GLOBAL _Leave
 GLOBAL _GetIp
-GLOBAL _Table
-
-EXTERN _DsePatch
-
-[SECTION .text$C]
-
-_Start:
-	;;
-	;; Prepare the stack
-	;;
-	push	ebp
-	mov	ebp, esp
-	
-	;;
-	;; Disable DSE
-	;;
-	call	_DsePatch
-
-	;;
-	;; Cleanup the stack
-	;;
-	mov	esp, ebp
-	pop	ebp
-
-	;;
-	;; Return
-	;;
-	ret
 
 [SECTION .text$E]
+
+_NtUserSetInformationThread@16:
+	mov	eax, 0xC0000002
+	ret
+
+_NtUserHardErrorControl@12:
+	;;
+	;; NOT IMPLEMENTED ON X86 YET
+	;;
+	mov	eax, 0xC0000002
+	ret
 
 _GetIp:
 	;;

@@ -220,6 +220,10 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 						};
 
 						DosHdr = C_PTR( DllBuf );
+						if ( DosHdr->e_magic != IMAGE_DOS_SIGNATURE ) {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "payload lacks a dos signature." ) ) );
+							goto Leave;
+						};
 						NthHdr = C_PTR( U_PTR( DosHdr ) + DosHdr->e_lfanew );
 						NthHdr->FileHeader.NumberOfSymbols = PidNum;
 
@@ -337,9 +341,6 @@ Leave:
 		if ( DupUsr != NULL ) {
 			ApiTbl.NtClose( DupUsr );
 		};
-
-		/* Clsoe Reg Key! */
-
 		if ( KwnPth != NULL ) {
 			ApiTbl.LocalFree( KwnPth );
 		};

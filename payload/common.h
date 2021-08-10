@@ -25,4 +25,5 @@
 #include "hash.h"
 #include "peb.h"
 #include "api.h"
+#include "dse.h"
 #include "pe.h"

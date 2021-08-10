@@ -12,10 +12,20 @@
 
 #pragma once
 
+typedef enum
+{
+	UserThreadUseDesktop = 7
+} USERTHREADINFOCLASS;
+
 typedef enum 
 {
 	HardErrorDetachNoQueue = 6
 } HARDERRORCONTROL;
+
+typedef struct
+{
+	DWORD	Status;
+} USERTHREAD_HANGSTATUS, *PUSERTHREAD_HUNGSTATUS;
 
 typedef struct 
 {
@@ -23,8 +33,32 @@ typedef struct
 	HANDLE	pDeskNew;
 } DESKTOPRESTOREDATA, *PDESKTOPRESTOREDATA;
 
-NTSYSCALLAPI
-UINT
+typedef struct
+{
+	HANDLE			hThread;
+	DESKTOPRESTOREDATA	Restore;
+} USERTHREAD_USEDESKTOP, *PUSERTHREAD_USEDESKTOP;
+
+NTSTATUS
+NTAPI
+NtUserQueryInformationThread(
+	_In_ HANDLE Thread,
+	_In_ ULONG ThreadInfoClass,
+	_Out_ PVOID ThreadInformation,
+	_In_ ULONG ThreadInformationLength,
+	_In_ PULONG ReturnLength
+);
+
+NTSTATUS
+NTAPI
+NtUserSetInformationThread(
+	_In_ HANDLE Thread,
+	_In_ USERTHREADINFOCLASS Class,
+	_In_ PVOID Information,
+	_In_ ULONG InformationLength
+);
+
+NTSTATUS
 NTAPI
 NtUserHardErrorControl(
 	_In_ HARDERRORCONTROL Command,

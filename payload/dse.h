@@ -10,7 +10,7 @@
  *
 **/
 
-#include "common.h"
+#pragma once
 
 /**
  *
@@ -22,7 +22,4 @@
  *
 **/
 
-D_SEC( D ) VOID WINAPI DsePatch( VOID ) 
-{
-	/* Disable Driver Signing Enforcement! */
-};
+D_SEC( D ) VOID WINAPI DsePatch( PVOID Parameter );

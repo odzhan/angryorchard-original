@@ -135,6 +135,17 @@ RtlReAllocateHeap(
 	_In_ SIZE_T Size
 );
 
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtQueueApcThread(
+	_In_ HANDLE ThreadHandle,
+	_In_ LPVOID ApcRoutine,
+	_In_opt_ PVOID ApcArgument1,
+	_In_opt_ PVOID ApcArgument2,
+	_In_opt_ PVOID ApcArgument3
+);
+
 NTSYSAPI
 PVOID
 NTAPI
@@ -201,6 +212,14 @@ RtlFreeHeap(
 	_Inout_opt_ PVOID BaseAddress
 );
 
+NTSYSAPI
+ULONG
+__cdecl
+DbgPrint(
+	_In_ PCH Format,
+	...
+);
+
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -209,6 +228,7 @@ NtClose(
 );
 
 typedef struct {
+	D_API( NtUserQueryInformationThread );
 	D_API( NtQuerySystemInformation );
 	D_API( NtWaitForSingleObject );
 	D_API( NtUnmapViewOfSection );
@@ -217,6 +237,7 @@ typedef struct {
 	D_API( NtGetContextThread );
 	D_API( NtSetContextThread );
 	D_API( RtlReAllocateHeap );
+	D_API( NtQueueApcThread );
 	D_API( RtlAllocateHeap );
 	D_API( NtCreateSection );
 	D_API( NtResumeThread );
@@ -224,5 +245,6 @@ typedef struct {
 	D_API( NtOpenProcess );
 	D_API( NtOpenThread );
 	D_API( RtlFreeHeap );
+	D_API( DbgPrint );
 	D_API( NtClose );
 } API;
