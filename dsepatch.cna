@@ -40,7 +40,11 @@ alias dsepatch {
 		berror( $1, "missing a pid for csrss." );
 		return;
 	};
-	ppspawn_dll( $1, "payload/dsepatch.x64.dll", $2 );
+	if ( !-is64 $1 ) {
+		berror( $1, "does not support x86." );
+		return;
+	};
+	ppspawn_dll( $1, "dsepatch/dsepatch.x64.dll", $2 );
 };
 
 ##

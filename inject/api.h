@@ -21,6 +21,11 @@
 	( p )->SecurityQualityOfService = NULL;	      \
 }
 
+typedef enum
+{
+	SystemModuleInformation = 11
+} SYSTEM_INFORMATION_CLASS;
+
 typedef struct 
 {
 	ULONG	Length;
@@ -30,6 +35,26 @@ typedef struct
 	PVOID	SecurityDescriptor;
 	PVOID	SecurityQualityOfService;
 } OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
+
+typedef struct
+{
+	HANDLE	Section;
+	PVOID	MappedBase;
+	PVOID	ImageBase;
+	ULONG	ImageSize;
+	ULONG	Flags;
+	USHORT	LoadOrderIndex;
+	USHORT	InitOrderIndex;
+	USHORT	LoadCount;
+	USHORT	OffsetToFileName;
+	UCHAR	FullPathName[ MAX_PATH - 4 ];
+} SYSTEM_MODULE_ENTRY, *PSYSTEM_MODULE_ENTRY ;
+
+typedef struct
+{
+	ULONG			Count;
+	SYSTEM_MODULE_ENTRY	Module[1];
+} SYSTEM_MODULE_INFORMATION, *PSYSTEM_MODULE_INFORMATION;
 
 NTSYSCALLAPI
 NTSTATUS
@@ -71,12 +96,31 @@ NtCreateDirectoryObjectEx(
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
+NtQuerySystemInformation(
+	_In_ SYSTEM_INFORMATION_CLASS SystemInformationClass,
+	_In_ PVOID SystemInformation,
+	_In_ ULONG SystemInformationLength,
+	_In_ PVOID ReturnLength
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
 NtQueryInformationToken(
 	_In_ HANDLE TokenHandle,
 	_In_ TOKEN_INFORMATION_CLASS TokenInformationClass,
 	_Out_ PVOID TokenInformation,
 	_In_ ULONG TokenInformationLength,
 	_Out_ PULONG ReturnLength
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtWaitForSingleObject(
+	_In_ HANDLE Handle,
+	_In_ BOOLEAN Alertable,
+	_In_ PLARGE_INTEGER Timeout
 );
 
 VOID
@@ -100,6 +144,17 @@ NtCreateTransaction(
 	_In_opt_ ULONG IsolationFlags,
 	_In_opt_ PLARGE_INTEGER Timeout,
 	_In_opt_ PUNICODE_STRING Description
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtReadVirtualMemory(
+	_In_ HANDLE ProcessHandle,
+	_In_opt_ PVOID BaseAddress,
+	_Out_ PVOID Buffer,
+	_In_ SIZE_T BufferSize,
+	_Out_opt_ PSIZE_T NumberOfBytesRead
 );
 
 NTSYSCALLAPI
@@ -172,13 +227,16 @@ typedef struct {
 	D_API( RtlAnsiStringToUnicodeSize );
 	D_API( SetSecurityDescriptorDacl );
 	D_API( NtCreateDirectoryObjectEx );
+	D_API( NtQuerySystemInformation );
 	D_API( SetKernelObjectSecurity );
 	D_API( NtQueryInformationToken );
 	D_API( CreateProcessWithTokenW );
 	D_API( ConvertStringSidToSidA );
 	D_API( CreateFileTransactedW );
+	D_API( NtWaitForSingleObject );
 	D_API( RtlInitUnicodeString );
 	D_API( NtCreateTransaction );
+	D_API( NtReadVirtualMemory );
 	D_API( NtOpenProcessToken );
 	D_API( RtlInitAnsiString );
 	D_API( IsTokenRestricted );

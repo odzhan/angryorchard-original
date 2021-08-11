@@ -5,6 +5,7 @@ SECTIONS
 		*( .text$A )
 		*( .text$B )
 		*( .text$C )
+		*( .text )
 		*( .rdata* )
 		*( .text$D )
 	}
