@@ -106,6 +106,18 @@ NtQuerySystemInformation(
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
+NtAllocateVirtualMemory(
+	_In_ HANDLE ProcessHandle,
+	_Inout_ PVOID* BaseAddress,
+	_In_ ULONG_PTR ZeroBits,
+	_Inout_ PSIZE_T RegionSize,
+	_In_ ULONG AllocationType,
+	_In_ ULONG Protect
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
 NtQueryInformationToken(
 	_In_ HANDLE TokenHandle,
 	_In_ TOKEN_INFORMATION_CLASS TokenInformationClass,
@@ -121,6 +133,17 @@ NtWaitForSingleObject(
 	_In_ HANDLE Handle,
 	_In_ BOOLEAN Alertable,
 	_In_ PLARGE_INTEGER Timeout
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtWriteVirtualMemory(
+	_In_ HANDLE ProcessHandle,
+	_Out_ PVOID BaseAddress,
+	_In_ LPVOID Buffer,
+	_In_ SIZE_T BufferSize,
+	_Out_opt_ PSIZE_T NumberOfBytesWritten
 );
 
 VOID
@@ -238,9 +261,11 @@ typedef struct {
 	D_API( SetKernelObjectSecurity );
 	D_API( NtQueryInformationToken );
 	D_API( CreateProcessWithTokenW );
+	D_API( NtAllocateVirtualMemory );
 	D_API( ConvertStringSidToSidA );
 	D_API( CreateFileTransactedW );
 	D_API( NtWaitForSingleObject );
+	D_API( NtWriteVirtualMemory );
 	D_API( RtlInitUnicodeString );
 	D_API( NtCreateTransaction );
 	D_API( NtReadVirtualMemory );

