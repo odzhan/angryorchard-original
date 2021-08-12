@@ -15,8 +15,8 @@ GLOBAL _BofStart
 
 %ifidn __OUTPUT_FORMAT__, win32
 	_BofStart:
-		incbin "ppinject.x86.bin"
+		incbin "dsepatch.x86.bin"
 %else
 	BofStart:
-		incbin "ppinject.x64.bin"
+		incbin "dsepatch.x64.bin"
 %endif

@@ -12,7 +12,7 @@
 
 #include "../common.h"
 
-VOID SpawnProtectedProcessWithLibrary( _In_ PVOID Argv, _In_ INT Argc ) {
+VOID DsePatchStart( _In_ PVOID Argv, _In_ INT Argc ) {
 	BEACON_API	Api;
 
 	RtlSecureZeroMemory( &Api, sizeof( Api ) );

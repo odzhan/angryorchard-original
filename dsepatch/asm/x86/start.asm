@@ -9,23 +9,10 @@
 ;;
 [BITS 32]
 
-GLOBAL _NtUserSetInformationThread@16
-GLOBAL _NtUserHardErrorControl@12
 GLOBAL _Leave
 GLOBAL _GetIp
 
-[SECTION .text$E]
-
-_NtUserSetInformationThread@16:
-	mov	eax, 0xC0000002
-	ret
-
-_NtUserHardErrorControl@12:
-	;;
-	;; NOT IMPLEMENTED ON X86 YET
-	;;
-	mov	eax, 0xC0000002
-	ret
+[SECTION .text$D]
 
 _GetIp:
 	;;
@@ -40,3 +27,6 @@ _get_ret_ptr:
 	pop	eax
 	sub	eax, 5
 	ret
+
+_Leave:
+	db 'E', 'N', 'D', 'O', 'F', 'C', 'O', 'D', 'E'

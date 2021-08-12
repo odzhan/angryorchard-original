@@ -20,4 +20,4 @@
  *
 **/
 
-D_SEC( D ) PVOID PebGetModule( _In_ UINT32 Hash );
+D_SEC( B ) PVOID PebGetModule( _In_ UINT32 Hash );
