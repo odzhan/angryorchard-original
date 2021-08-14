@@ -56,5 +56,8 @@
 #define H_API_NTCLOSE				0x40d6e69d
 #define H_API_SLEEP				0x0e07cd7e
 
+#define H_STR_MMFREENONCACHEDMEMORY		0x34723e3d
 #define H_STR_CIINITIALIZE			0x249f1683
+#define H_STR_NTOSKRNL				0xa3ad0390
+#define H_STR_TEXT				0x0b6ea858
 #define H_STR_CI				0xa96c087b

