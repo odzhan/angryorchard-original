@@ -16,10 +16,9 @@
  *
  * Purpose:
  *
- * Attempts to use the elevated thread to
- * to disable DSE by modifying the PTE
- * and overwriting g_CiOptions.
+ * Acquires a pointer to an object based on its
+ * handle.
  *
 **/
 
-D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api, _In_ PVOID Buffer, _In_ ULONG Length );
+D_SEC( B ) PVOID ObjFromHandle( _In_ PBEACON_API BeaconApi, _In_ PAPI Api, _In_ HANDLE Pointer );

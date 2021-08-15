@@ -16,10 +16,10 @@
  *
  * Purpose:
  *
- * Attempts to use the elevated thread to
- * to disable DSE by modifying the PTE
- * and overwriting g_CiOptions.
+ * Hashes an input buffer of specified length,
+ * If a length is not provided, it will read 
+ * until the NULL terminator.
  *
 **/
 
-D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api, _In_ PVOID Buffer, _In_ ULONG Length );
+D_SEC( B ) UINT32 HashString( _In_ PVOID Buffer, _In_opt_ UINT32 Length );

@@ -23,8 +23,70 @@
 
 typedef enum
 {
-	SystemModuleInformation = 11
+	SystemModuleInformation = 11,
+	SystemHandleInformation = 16
 } SYSTEM_INFORMATION_CLASS;
+
+typedef struct
+{
+	union
+	{
+		NTSTATUS Status;
+		PVOID Pointer;
+	};
+	ULONG_PTR Information;
+} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
+
+typedef struct
+{
+	USHORT		Type;
+	USHORT		Size;
+	LPVOID		DeviceObject;
+	ULONG		Flags;
+	PVOID		DriverStart;
+	ULONG		DriverSize;
+	PVOID		DriverSection;
+	PVOID		DriverExtension;
+	UNICODE_STRING	DriverName;
+	PUNICODE_STRING	HardwareDatabase;
+	PVOID		FastIoDispatch;
+	PVOID		DriverInit;
+	PVOID		DriverStartIo;
+	PVOID		DriverUnload;
+	PVOID		MajorFunction[ 0x1b + 1 ];
+} DRIVER_OBJECT, *PDRIVER_OBJECT;
+
+typedef struct
+{
+	USHORT	Type;
+	USHORT	Size;
+	PVOID	DeviceObject;
+} FILE_OBJECT, *PFILE_OBJECT ;
+
+typedef struct
+{
+	USHORT	Type;
+	USHORT	Size;
+	LONG	ReferenceCount;
+	PVOID	DriverObject;
+} DEVICE_OBJECT, *PDEVICE_OBJECT ;
+
+typedef struct
+{
+	USHORT	UniqueProcessId;
+	USHORT	CreatorBackTraceIndex;
+	UCHAR	ObjectTypeIndex;
+	UCHAR	HandleAttributes;
+	USHORT	HandleValue;
+	PVOID	Object;
+	ULONG	GrantedAccess;
+} SYSTEM_HANDLE_TABLE_ENTRY_INFO, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO;
+
+typedef struct
+{
+	ULONG	NumberOfHandles;
+	SYSTEM_HANDLE_TABLE_ENTRY_INFO	Handles[1];
+} SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION ;
 
 typedef struct 
 {
@@ -220,6 +282,16 @@ NtCreateSection(
 	_In_opt_ HANDLE FileHandle
 );
 
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtOpenProcess(
+	_Out_ PHANDLE ProcessHandle,
+	_In_ ACCESS_MASK DesiredAccess,
+	_In_ POBJECT_ATTRIBUTES ObjectAttributes,
+	_In_ PCLIENT_ID ClientId
+);
+
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -227,11 +299,33 @@ RtlGetVersion(
 	_In_ PRTL_OSVERSIONINFOW Version
 );
 
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtOpenThread(
+	_Out_ PHANDLE ThreadHandle,
+	_In_ ACCESS_MASK DesiredAccess,
+	_In_ POBJECT_ATTRIBUTES ObjectAttributes,
+	_In_ PCLIENT_ID ClientId
+);
+
 BOOLEAN
 NTAPI
 RtlEqualSid(
 	_In_ PSID Sid1,
 	_In_ PSID Sid2
+);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtOpenFile(
+	_Out_ PHANDLE FileHandle,
+	_In_ ACCESS_MASK DesiredAccess,
+	_In_ POBJECT_ATTRIBUTES ObjectAttributes,
+	_In_ PIO_STATUS_BLOCK StatusBlock,
+	_In_ ULONG ShareAccess,
+	_In_ ULONG OpenOptions
 );
 
 INT
@@ -281,13 +375,17 @@ typedef struct {
 	D_API( SetThreadToken );
 	D_API( LoadLibraryExA );
 	D_API( GetProcAddress );
+	D_API( NtOpenProcess );
 	D_API( RtlGetVersion );
+	D_API( NtOpenThread );
 	D_API( FreeLibrary );
 	D_API( RtlEqualSid );
 	D_API( LocalAlloc );
+	D_API( NtOpenFile );
 	D_API( _vsnprintf );
 	D_API( WriteFile );
 	D_API( LocalFree );
 	D_API( NtClose );
 	D_API( Sleep );
+	D_API( Beep );
 } API, *PAPI ;

@@ -10,17 +10,11 @@ CFLAGS := $(CFLAGS) -falign-labels=1 -fPIC
 CFLAGS := $(CFLAGS) -Wl,-s,--no-seh,--enable-stdcall-fixup,-TSectionLink.ld
 
 all:
-	#@ nasm -f win32 asm/x86/start.asm -o start.x86.o
 	@ nasm -f win64 asm/x64/start.asm -o start.x64.o
-	#@ $(CC_X86) *.c start.x86.o -o dsepatch.x86.exe $(CFLAGS)
 	@ $(CC_X64) *.c start.x64.o -o dsepatch.x64.exe $(CFLAGS)
-	#@ python3 python3/ExtractBin.py -f dsepatch.x86.exe -o dsepatch.x86.bin
 	@ python3 python3/ExtractBin.py -f dsepatch.x64.exe -o dsepatch.x64.bin
-	#@ nasm -f win32 bof/dsepatch.asm -o dsepatch_asm.x86.o
 	@ nasm -f win64 bof/dsepatch.asm -o dsepatch_asm.x64.o
-	#@ $(CC_X86) bof/dsepatch.c -c -o dsepatch_bof.x86.o -Os -s -Qn
 	@ $(CC_X64) bof/dsepatch.c -c -o dsepatch_bof.x64.o -Os -s -Qn
-	#@ $(LD_X86) -x -r dsepatch_bof.x86.o dsepatch_asm.x86.o -o dsepatch.x86.o
 	@ $(LD_X64) -x -r dsepatch_bof.x64.o dsepatch_asm.x64.o -o dsepatch.x64.o
 
 clean:

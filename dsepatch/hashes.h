@@ -46,18 +46,23 @@
 #define H_API_SETTHREADTOKEN			0xc9f4966a
 #define H_API_LOADLIBRARYEXA			0x9592af38
 #define H_API_GETPROCADDRESS			0xdecfc1bf
+#define H_API_NTOPENPROCESS			0x4b82f718
 #define H_API_RTLGETVERSION			0x0dde5cdd
+#define H_API_NTOPENTHREAD			0x968e0cb1
 #define H_API_FREELIBRARY			0x4ad9b11c
 #define H_API_RTLEQUALSID			0x5f7a694f
+#define H_API_NTOPENFILE			0x46dde739
 #define H_API_LOCALALLOC			0x72073b5b
 #define H_API_VSNPRINTF				0xa59022ce
 #define H_API_WRITEFILE				0xf1d207d0
 #define H_API_LOCALFREE				0x32030e92
 #define H_API_NTCLOSE				0x40d6e69d
 #define H_API_SLEEP				0x0e07cd7e
+#define H_API_BEEP				0x7c826f41
 
 #define H_STR_MMFREENONCACHEDMEMORY		0x34723e3d
 #define H_STR_CIINITIALIZE			0x249f1683
 #define H_STR_NTOSKRNL				0xa3ad0390
+#define H_STR_BEEP				0xcad4ce0e
 #define H_STR_TEXT				0x0b6ea858
 #define H_STR_CI				0xa96c087b

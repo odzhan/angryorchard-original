@@ -7,26 +7,26 @@
 ;; a userland bug, this project remains 
 ;; closed source.
 ;;
-[BITS 32]
+[BITS 64]
 
-GLOBAL _Leave
-GLOBAL _GetIp
+GLOBAL Leave
+GLOBAL GetIp
 
 [SECTION .text$D]
 
-_GetIp:
+GetIp:
 	;;
 	;; Execute next instruction
 	;;
-	call	_get_ret_ptr
+	call	get_ret_ptr
 
-_get_ret_ptr:
+get_ret_ptr:
 	;;
 	;; Pop address of stack
 	;;
-	pop	eax
-	sub	eax, 5
+	pop	rax
+	sub	rax, 5
 	ret
 
-_Leave:
+Leave:
 	db 'E', 'N', 'D', 'O', 'F', 'C', 'O', 'D', 'E'

