@@ -12,14 +12,8 @@
 
 #pragma once
 
-/**
- *
- * Purpose:
- *
- * Attempts to use the elevated thread to
- * to disable DSE by modifying the PTE
- * and overwriting g_CiOptions.
- *
-**/
-
-D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api );
+typedef struct __attribute__(( packed )) 
+{
+	ULONG_PTR	ExAllocatePool;
+	ULONG_PTR	ExFreePool;
+} KM_TABLE, *PKM_TABLE;

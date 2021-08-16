@@ -9,10 +9,15 @@
 ;;
 [BITS 64]
 
+GLOBAL Table
 GLOBAL Leave
 GLOBAL GetIp
 
 [SECTION .text$D]
+
+Table:
+	dq 0
+	dq 0
 
 GetIp:
 	;;

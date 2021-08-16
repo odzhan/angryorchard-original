@@ -27,9 +27,10 @@
 #include "bof.h"
 #include "pe.h"
 
+#include "shellcode.h"
+#include "kmtable.h"
 #include "string.h"
 #include "token.h"
-#include "dse.h"
 #include "hde.h"
 #include "pte.h"
 #include "obj.h"

