@@ -29,6 +29,37 @@ typedef enum
 
 typedef struct
 {
+	ULONGLONG	Valid			: 1;
+	ULONGLONG	Dirty1  		: 1;
+	ULONGLONG	Owner 			: 1;
+	ULONGLONG	WriteThrough 		: 1;
+	ULONGLONG	CacheDisabled		: 1;
+	ULONGLONG	Accessed		: 1;
+	ULONGLONG	Dirty2			: 1;
+	ULONGLONG	LargePage		: 1;
+	ULONGLONG	Global			: 1;
+	ULONGLONG	CopyOnWrite		: 1;
+	ULONGLONG	Unused			: 1;
+	ULONGLONG	Write			: 1;
+	ULONGLONG	PageFrameNumber		: 36;
+	ULONGLONG	ReservedForHardware 	: 4;
+	ULONGLONG	ReservedForSoftware	: 4;
+	ULONGLONG	WsleAge			: 4;
+	ULONGLONG	WsleProtection		: 3;
+	ULONGLONG	NoExecute		: 1;
+} MMPTE_HARDWARE, *PMMPTE_HARDWARE;
+
+typedef struct
+{
+	union 
+	{
+		ULONG_PTR	Long;
+		MMPTE_HARDWARE	Hard;
+	} u;
+} MMPTE, *PMMPTE;
+
+typedef struct
+{
 	union
 	{
 		NTSTATUS Status;

